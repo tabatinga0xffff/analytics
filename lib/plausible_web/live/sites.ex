@@ -466,7 +466,10 @@ defmodule PlausibleWeb.Live.Sites do
                     >
                       You will have to enter your card details immediately with no 30-day trial.
                     </div>
-                    <div :if={Plausible.Billing.on_trial?(@user)} class="mt-4">
+                    <div
+                      :if={Plausible.Billing.on_trial?(@user)}
+                      class="mt-4 text-gray-600 dark:text-gray-100"
+                    >
                       <Heroicons.exclamation_triangle class="w-4 h-4 inline-block text-red-500" />
                       Your 30-day free trial will end immediately and
                       <strong>you will have to enter your card details</strong>
