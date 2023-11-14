@@ -63,6 +63,28 @@ defmodule PlausibleWeb.AuthController do
     end
   end
 
+  def setup_2fa(conn, params) do
+    user = conn.assigns.current_user
+    secret = 10 |> :crypto.strong_rand_bytes() |> Base.encode32(padding: false)
+    step = params["step"] || "1"
+    qr_color = {101, 116, 205}
+
+    recovery_codes = Enum.map(1..10, fn _ -> 
+      6 |> :crypto.strong_rand_bytes() |> Base.encode32(padding: false)
+    end)
+
+    svg_settings = %QRCode.Render.SvgSettings{qrcode_color: qr_color, structure: :readable, scale: 4}
+
+    totp_url = "otpauth://totp/Plausible%20Analytics/#{user.email}?issuer=Plausible%20Analytics&secret=#{secret}"
+
+    {:ok, qr_code} = 
+      totp_url
+      |> QRCode.create()
+      |> QRCode.render(:svg, svg_settings)
+
+    render(conn, "setup_2fa_step#{step}.html", secret: secret, qr_code: qr_code, recovery_codes: recovery_codes, layout: {PlausibleWeb.LayoutView, "focus.html"})
+  end
+
   def activate_form(conn, _params) do
     user = conn.assigns.current_user
 

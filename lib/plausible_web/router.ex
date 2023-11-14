@@ -177,6 +177,7 @@ defmodule PlausibleWeb.Router do
     post "/password/reset", AuthController, :password_reset
     get "/avatar/:hash", AvatarController, :avatar
     post "/error_report", ErrorReportController, :submit_error_report
+    get "/setup_2fa/:step", AuthController, :setup_2fa
   end
 
   scope "/", PlausibleWeb do
