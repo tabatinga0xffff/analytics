@@ -1,11 +1,15 @@
 defmodule PlausibleWeb.RemoteIp do
   def get(conn) do
+    x_vercel_forwarded_for = List.first(Plug.Conn.get_req_header(conn, "x-vercel-forwarded-for"))
     cf_connecting_ip = List.first(Plug.Conn.get_req_header(conn, "cf-connecting-ip"))
     x_forwarded_for = List.first(Plug.Conn.get_req_header(conn, "x-forwarded-for"))
     b_forwarded_for = List.first(Plug.Conn.get_req_header(conn, "b-forwarded-for"))
     forwarded = List.first(Plug.Conn.get_req_header(conn, "forwarded"))
 
     cond do
+      x_vercel_forwarded_for ->
+        parse_forwarded_for(x_vercel_forwarded_for)
+
       cf_connecting_ip ->
         clean_ip(cf_connecting_ip)
 
