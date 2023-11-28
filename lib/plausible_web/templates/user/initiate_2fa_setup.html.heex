@@ -52,7 +52,7 @@
         <p class="text-sm mt-4 sm:mt-0">
           Changed your mind?
           <a
-            href={Routes.auth_path(@conn, :user_settings) <> "#setup-2fa"}
+            href={Routes.user_path(@conn, :user_settings) <> "#setup-2fa"}
             class="underline text-indigo-600"
           >
             Go back to settings
@@ -61,7 +61,7 @@
         <.unstyled_link
           id="proceed"
           class="button sm:w-auto w-full"
-          href={Routes.auth_path(@conn, :verify_2fa_setup_form)}
+          href={Routes.user_path(@conn, :verify_2fa_setup_form)}
         >
           Proceed &rarr;
         </.unstyled_link>

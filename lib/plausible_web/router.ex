@@ -180,22 +180,18 @@ defmodule PlausibleWeb.Router do
 
     post "/register", AuthController, :register
     post "/register/invitation/:invitation_id", AuthController, :register_from_invitation
-    get "/activate", AuthController, :activate_form
-    post "/activate/request-code", AuthController, :request_activation_code
-    post "/activate", AuthController, :activate
+    get "/activate", UserController, :activate_form
+    post "/activate/request-code", UserController, :request_activation_code
+    post "/activate", UserController, :activate
     get "/login", AuthController, :login_form
     post "/login", AuthController, :login
-    get "/password/request-reset", AuthController, :password_reset_request_form
-    post "/password/request-reset", AuthController, :password_reset_request
-    post "/2fa/setup/initiate", AuthController, :initiate_2fa_setup
-    get "/2fa/setup/verify", AuthController, :verify_2fa_setup_form
-    post "/2fa/setup/verify", AuthController, :verify_2fa_setup
-    post "/2fa/disable", AuthController, :disable_2fa
-    post "/2fa/recovery_codes", AuthController, :generate_2fa_recovery_codes
+    get "/logout", AuthController, :logout
     get "/2fa/verify", AuthController, :verify_2fa_form
     post "/2fa/verify", AuthController, :verify_2fa
     get "/2fa/use_recovery_code", AuthController, :verify_2fa_recovery_code_form
     post "/2fa/use_recovery_code", AuthController, :verify_2fa_recovery_code
+    get "/password/request-reset", AuthController, :password_reset_request_form
+    post "/password/request-reset", AuthController, :password_reset_request
     get "/password/reset", AuthController, :password_reset_form
     post "/password/reset", AuthController, :password_reset
     get "/avatar/:hash", AvatarController, :avatar
@@ -212,17 +208,21 @@ defmodule PlausibleWeb.Router do
   scope "/", PlausibleWeb do
     pipe_through [:browser, :csrf]
 
-    get "/logout", AuthController, :logout
-    get "/settings", AuthController, :user_settings
-    put "/settings", AuthController, :save_settings
-    put "/settings/email", AuthController, :update_email
-    post "/settings/email/cancel", AuthController, :cancel_update_email
-    delete "/me", AuthController, :delete_me
-    get "/settings/api-keys/new", AuthController, :new_api_key
-    post "/settings/api-keys", AuthController, :create_api_key
-    delete "/settings/api-keys/:id", AuthController, :delete_api_key
+    get "/settings", UserController, :user_settings
+    put "/settings", UserController, :save_settings
+    put "/settings/email", UserController, :update_email
+    post "/settings/email/cancel", UserController, :cancel_update_email
+    delete "/me", UserController, :delete_me
+    get "/settings/api-keys/new", UserController, :new_api_key
+    post "/settings/api-keys", UserController, :create_api_key
+    delete "/settings/api-keys/:id", UserController, :delete_api_key
+    post "/2fa/setup/initiate", UserController, :initiate_2fa_setup
+    get "/2fa/setup/verify", UserController, :verify_2fa_setup_form
+    post "/2fa/setup/verify", UserController, :verify_2fa_setup
+    post "/2fa/disable", UserController, :disable_2fa
+    post "/2fa/recovery_codes", UserController, :generate_2fa_recovery_codes
 
-    get "/auth/google/callback", AuthController, :google_auth_callback
+    get "/auth/google/callback", GoogleAuthController, :google_auth_callback
 
     get "/", PageController, :index
 

@@ -54,7 +54,7 @@
   <div class="flex flex-col w-full max-w-4xl px-4 mx-auto mt-4 md:flex-row">
     <div x-init="fetchPlans()" x-data="window.plans()" class="flex-1 px-8 py-4 mt-8 mb-4 bg-white rounded shadow-md dark:bg-gray-800">
       <div class="w-full py-4 dark:text-gray-100">
-        <span>You've used <b><%= PlausibleWeb.AuthView.delimit_integer(@usage) %></b> billable pageviews in the last 30 days</span>
+        <span>You've used <b><%= PlausibleWeb.UserView.delimit_integer(@usage) %></b> billable pageviews in the last 30 days</span>
       </div>
 
       <div class="pt-2"></div>

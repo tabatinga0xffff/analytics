@@ -132,7 +132,7 @@ defmodule PlausibleWeb.Components.Billing do
     >
       <h4 class="font-black dark:text-gray-100">Monthly quota</h4>
       <div class="py-2 text-xl font-medium dark:text-gray-100">
-        <%= PlausibleWeb.AuthView.subscription_quota(@subscription, format: :long) %>
+        <%= PlausibleWeb.UserView.subscription_quota(@subscription, format: :long) %>
       </div>
       <.styled_link
         :if={
@@ -157,7 +157,7 @@ defmodule PlausibleWeb.Components.Billing do
       <h4 class="font-black dark:text-gray-100">Monthly quota</h4>
       <%= if @subscription do %>
         <div class="py-2 text-xl font-medium dark:text-gray-100">
-          <%= PlausibleWeb.AuthView.subscription_quota(@subscription) %> pageviews
+          <%= PlausibleWeb.UserView.subscription_quota(@subscription) %> pageviews
         </div>
 
         <.styled_link

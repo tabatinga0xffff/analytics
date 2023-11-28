@@ -88,8 +88,8 @@ defmodule Plausible.Auth.UserAdmin do
   defp subscription_plan(user) do
     if user.subscription && user.subscription.status == Subscription.Status.active() &&
          user.subscription.paddle_subscription_id do
-      quota = PlausibleWeb.AuthView.subscription_quota(user.subscription)
-      interval = PlausibleWeb.AuthView.subscription_interval(user.subscription)
+      quota = PlausibleWeb.UserView.subscription_quota(user.subscription)
+      interval = PlausibleWeb.UserView.subscription_interval(user.subscription)
 
       manage_url =
         Plausible.Billing.PaddleApi.vendors_domain() <>
@@ -105,7 +105,7 @@ defmodule Plausible.Auth.UserAdmin do
   defp subscription_status(user) do
     cond do
       user.subscription ->
-        PlausibleWeb.AuthView.present_subscription_status(user.subscription.status)
+        PlausibleWeb.UserView.present_subscription_status(user.subscription.status)
 
       Plausible.Billing.on_trial?(user) ->
         "On trial"

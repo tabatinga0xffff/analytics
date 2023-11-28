@@ -126,7 +126,7 @@ defmodule PlausibleWeb.Live.ChoosePlan do
           <.enterprise_plan_box benefits={@enterprise_benefits} />
         </div>
         <p class="mx-auto mt-8 max-w-2xl text-center text-lg leading-8 text-gray-600 dark:text-gray-400">
-          You have used <b><%= PlausibleWeb.AuthView.delimit_integer(@usage.monthly_pageviews) %></b>
+          You have used <b><%= PlausibleWeb.UserView.delimit_integer(@usage.monthly_pageviews) %></b>
           billable pageviews in the last 30 days
         </p>
         <.pageview_limit_notice :if={!@owned_plan} />

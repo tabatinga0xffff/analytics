@@ -1,0 +1,772 @@
+defmodule PlausibleWeb.UserControllerTest do
+  use PlausibleWeb.ConnCase, async: true
+  use Bamboo.Test
+  use Plausible.Repo
+
+  import Plausible.Test.Support.HTML
+
+  alias Plausible.Auth
+  alias Plausible.Billing.Subscription
+
+  require Logger
+  require Plausible.Billing.Subscription.Status
+
+  @v3_plan_id "749355"
+  @v4_plan_id "857097"
+  @configured_enterprise_plan_paddle_plan_id "123"
+
+  describe "GET /activate" do
+    setup [:create_user, :log_in]
+
+    test "if user does not have a code: prompts user to request activation code", %{conn: conn} do
+      conn = get(conn, "/activate")
+
+      assert html_response(conn, 200) =~ "Request activation code"
+    end
+
+    test "if user does have a code: prompts user to enter the activation code from their email",
+         %{conn: conn} do
+      conn =
+        post(conn, "/activate/request-code")
+        |> get("/activate")
+
+      assert html_response(conn, 200) =~ "Please enter the 4-digit code we sent to"
+    end
+  end
+
+  describe "POST /activate/request-code" do
+    setup [:create_user, :log_in]
+
+    test "generates an activation pin for user account", %{conn: conn, user: user} do
+      post(conn, "/activate/request-code")
+
+      assert code = Repo.get_by(Auth.EmailActivationCode, user_id: user.id)
+
+      assert code.user_id == user.id
+      refute Auth.EmailVerification.expired?(code)
+    end
+
+    test "regenerates an activation pin even if there's one already", %{conn: conn, user: user} do
+      five_minutes_ago =
+        NaiveDateTime.utc_now()
+        |> Timex.shift(minutes: -5)
+        |> NaiveDateTime.truncate(:second)
+
+      {:ok, verification} = Auth.EmailVerification.issue_code(user, five_minutes_ago)
+
+      post(conn, "/activate/request-code")
+
+      assert new_verification = Repo.get_by(Auth.EmailActivationCode, user_id: user.id)
+
+      assert verification.id == new_verification.id
+      assert verification.user_id == new_verification.user_id
+      # this actually has a chance to fail 1 in 8999 runs
+      # but at the same time it's good to have a confirmation
+      # that it indeed generates a new code
+      if verification.code == new_verification.code do
+        Logger.warning(
+          "Congratulations! You you have hit 1 in 8999 chance of the same " <>
+            "email verification code repeating twice in a row!"
+        )
+      end
+
+      assert NaiveDateTime.compare(verification.issued_at, new_verification.issued_at) == :lt
+    end
+
+    test "sends activation email to user", %{conn: conn, user: user} do
+      post(conn, "/activate/request-code")
+
+      assert_delivered_email_matches(%{to: [{_, user_email}], subject: subject})
+      assert user_email == user.email
+      assert subject =~ "is your Plausible email verification code"
+    end
+
+    test "redirects user to /activate", %{conn: conn} do
+      conn = post(conn, "/activate/request-code")
+
+      assert redirected_to(conn, 302) == "/activate"
+    end
+  end
+
+  describe "POST /activate" do
+    setup [:create_user, :log_in]
+
+    test "with wrong pin - reloads the form with error", %{conn: conn} do
+      conn = post(conn, "/activate", %{code: "1234"})
+
+      assert html_response(conn, 200) =~ "Incorrect activation code"
+    end
+
+    test "with expired pin - reloads the form with error", %{conn: conn, user: user} do
+      one_day_ago =
+        NaiveDateTime.utc_now()
+        |> Timex.shift(days: -1)
+        |> NaiveDateTime.truncate(:second)
+
+      {:ok, verification} = Auth.EmailVerification.issue_code(user, one_day_ago)
+
+      conn = post(conn, "/activate", %{code: verification.code})
+
+      assert html_response(conn, 200) =~ "Code is expired, please request another one"
+    end
+
+    test "marks the user account as active", %{conn: conn, user: user} do
+      Repo.update!(Auth.User.changeset(user, %{email_verified: false}))
+      post(conn, "/activate/request-code")
+
+      verification = Repo.get_by!(Auth.EmailActivationCode, user_id: user.id)
+
+      conn = post(conn, "/activate", %{code: verification.code})
+      user = Repo.get_by(Auth.User, id: user.id)
+
+      assert user.email_verified
+      assert redirected_to(conn) == "/sites/new"
+    end
+
+    test "redirects to /sites if user has invitation", %{conn: conn, user: user} do
+      site = insert(:site)
+      insert(:invitation, inviter: build(:user), site: site, email: user.email)
+      Repo.update!(Auth.User.changeset(user, %{email_verified: false}))
+      post(conn, "/activate/request-code")
+
+      verification = Repo.get_by!(Auth.EmailActivationCode, user_id: user.id)
+
+      conn = post(conn, "/activate", %{code: verification.code})
+
+      assert redirected_to(conn) == "/sites"
+    end
+
+    test "removes used up verification code", %{conn: conn, user: user} do
+      Repo.update!(Auth.User.changeset(user, %{email_verified: false}))
+      post(conn, "/activate/request-code")
+
+      verification = Repo.get_by!(Auth.EmailActivationCode, user_id: user.id)
+
+      post(conn, "/activate", %{code: verification.code})
+
+      refute Repo.get_by(Auth.EmailActivationCode, user_id: user.id)
+    end
+  end
+
+  describe "GET /settings" do
+    setup [:create_user, :log_in]
+
+    test "shows the form", %{conn: conn} do
+      conn = get(conn, "/settings")
+      assert resp = html_response(conn, 200)
+      assert resp =~ "Change account name"
+      assert resp =~ "Change email address"
+    end
+
+    test "shows subscription", %{conn: conn, user: user} do
+      insert(:subscription, paddle_plan_id: "558018", user: user)
+      conn = get(conn, "/settings")
+      assert html_response(conn, 200) =~ "10k pageviews"
+      assert html_response(conn, 200) =~ "monthly billing"
+    end
+
+    test "shows yearly subscription", %{conn: conn, user: user} do
+      insert(:subscription, paddle_plan_id: "590752", user: user)
+      conn = get(conn, "/settings")
+      assert html_response(conn, 200) =~ "100k pageviews"
+      assert html_response(conn, 200) =~ "yearly billing"
+    end
+
+    test "shows free subscription", %{conn: conn, user: user} do
+      insert(:subscription, paddle_plan_id: "free_10k", user: user)
+      conn = get(conn, "/settings")
+      assert html_response(conn, 200) =~ "10k pageviews"
+      assert html_response(conn, 200) =~ "N/A billing"
+    end
+
+    test "shows enterprise plan subscription", %{conn: conn, user: user} do
+      insert(:subscription, paddle_plan_id: "123", user: user)
+
+      configure_enterprise_plan(user)
+
+      conn = get(conn, "/settings")
+      assert html_response(conn, 200) =~ "20M pageviews"
+      assert html_response(conn, 200) =~ "yearly billing"
+    end
+
+    test "shows current enterprise plan subscription when user has a new one to upgrade to", %{
+      conn: conn,
+      user: user
+    } do
+      insert(:subscription,
+        paddle_plan_id: @configured_enterprise_plan_paddle_plan_id,
+        user: user
+      )
+
+      insert(:enterprise_plan,
+        paddle_plan_id: "1234",
+        user: user,
+        monthly_pageview_limit: 10_000_000,
+        billing_interval: :yearly
+      )
+
+      configure_enterprise_plan(user)
+
+      conn = get(conn, "/settings")
+      assert html_response(conn, 200) =~ "20M pageviews"
+      assert html_response(conn, 200) =~ "yearly billing"
+    end
+
+    test "renders two links to '/billing/choose-plan` with the text 'Upgrade'", %{conn: conn} do
+      doc =
+        get(conn, "/settings")
+        |> html_response(200)
+
+      upgrade_link_1 = find(doc, "#monthly-quota-box a")
+      upgrade_link_2 = find(doc, "#upgrade-link-2")
+
+      assert text(upgrade_link_1) == "Upgrade"
+      assert text_of_attr(upgrade_link_1, "href") == Routes.billing_path(conn, :choose_plan)
+
+      assert text(upgrade_link_2) == "Upgrade"
+      assert text_of_attr(upgrade_link_2, "href") == Routes.billing_path(conn, :choose_plan)
+    end
+
+    test "renders a link to '/billing/choose-plan' with the text 'Change plan' + cancel link", %{
+      conn: conn,
+      user: user
+    } do
+      insert(:subscription, paddle_plan_id: @v3_plan_id, user: user)
+
+      doc =
+        get(conn, "/settings")
+        |> html_response(200)
+
+      refute element_exists?(doc, "#upgrade-link-2")
+      assert doc =~ "Cancel my subscription"
+
+      change_plan_link = find(doc, "#monthly-quota-box a")
+
+      assert text(change_plan_link) == "Change plan"
+      assert text_of_attr(change_plan_link, "href") == Routes.billing_path(conn, :choose_plan)
+    end
+
+    test "/billing/choose-plan link does not show up when enterprise subscription is past_due", %{
+      conn: conn,
+      user: user
+    } do
+      configure_enterprise_plan(user)
+
+      insert(:subscription,
+        user: user,
+        status: Subscription.Status.past_due(),
+        paddle_plan_id: @configured_enterprise_plan_paddle_plan_id
+      )
+
+      doc =
+        conn
+        |> get(Routes.user_path(conn, :user_settings))
+        |> html_response(200)
+
+      refute element_exists?(doc, "#upgrade-or-change-plan-link")
+    end
+
+    test "/billing/choose-plan link does not show up when enterprise subscription is paused", %{
+      conn: conn,
+      user: user
+    } do
+      configure_enterprise_plan(user)
+
+      insert(:subscription,
+        user: user,
+        status: Subscription.Status.paused(),
+        paddle_plan_id: @configured_enterprise_plan_paddle_plan_id
+      )
+
+      doc =
+        conn
+        |> get(Routes.user_path(conn, :user_settings))
+        |> html_response(200)
+
+      refute element_exists?(doc, "#upgrade-or-change-plan-link")
+    end
+
+    test "renders two links to '/billing/choose-plan' with the text 'Upgrade' for a configured enterprise plan",
+         %{conn: conn, user: user} do
+      configure_enterprise_plan(user)
+
+      doc =
+        get(conn, "/settings")
+        |> html_response(200)
+
+      upgrade_link_1 = find(doc, "#monthly-quota-box a")
+      upgrade_link_2 = find(doc, "#upgrade-link-2")
+
+      assert text(upgrade_link_1) == "Upgrade"
+
+      assert text_of_attr(upgrade_link_1, "href") ==
+               Routes.billing_path(conn, :choose_plan)
+
+      assert text(upgrade_link_2) == "Upgrade"
+
+      assert text_of_attr(upgrade_link_2, "href") ==
+               Routes.billing_path(conn, :choose_plan)
+    end
+
+    test "links to '/billing/choose-plan' with the text 'Change plan' for a configured enterprise plan with an existing subscription + renders cancel button",
+         %{conn: conn, user: user} do
+      insert(:subscription, paddle_plan_id: @v3_plan_id, user: user)
+
+      configure_enterprise_plan(user)
+
+      doc =
+        get(conn, "/settings")
+        |> html_response(200)
+
+      refute element_exists?(doc, "#upgrade-link-2")
+      assert doc =~ "Cancel my subscription"
+
+      change_plan_link = find(doc, "#monthly-quota-box a")
+
+      assert text(change_plan_link) == "Change plan"
+
+      assert text_of_attr(change_plan_link, "href") ==
+               Routes.billing_path(conn, :choose_plan)
+    end
+
+    test "renders cancelled subscription notice", %{conn: conn, user: user} do
+      insert(:subscription,
+        paddle_plan_id: @v4_plan_id,
+        user: user,
+        status: :deleted,
+        next_bill_date: ~D[2023-01-01]
+      )
+
+      notice_text =
+        get(conn, "/settings")
+        |> html_response(200)
+        |> text_of_element("#global-subscription-cancelled-notice")
+
+      assert notice_text =~ "Subscription cancelled"
+      assert notice_text =~ "Upgrade your subscription to get access to your stats again"
+    end
+
+    test "renders cancelled subscription notice with some subscription days still left", %{
+      conn: conn,
+      user: user
+    } do
+      insert(:subscription,
+        paddle_plan_id: @v4_plan_id,
+        user: user,
+        status: :deleted,
+        next_bill_date: Timex.shift(Timex.today(), days: 10)
+      )
+
+      notice_text =
+        get(conn, "/settings")
+        |> html_response(200)
+        |> text_of_element("#global-subscription-cancelled-notice")
+
+      assert notice_text =~ "Subscription cancelled"
+      assert notice_text =~ "You have access to your stats until"
+      assert notice_text =~ "Upgrade your subscription to make sure you don't lose access"
+    end
+
+    test "renders cancelled subscription notice with a warning about losing grandfathering", %{
+      conn: conn,
+      user: user
+    } do
+      insert(:subscription,
+        paddle_plan_id: @v3_plan_id,
+        user: user,
+        status: :deleted,
+        next_bill_date: Timex.shift(Timex.today(), days: 10)
+      )
+
+      notice_text =
+        get(conn, "/settings")
+        |> html_response(200)
+        |> text_of_element("#global-subscription-cancelled-notice")
+
+      assert notice_text =~ "Subscription cancelled"
+      assert notice_text =~ "You have access to your stats until"
+
+      assert notice_text =~
+               "by letting your subscription expire, you lose access to our grandfathered terms"
+    end
+
+    test "shows invoices for subscribed user", %{conn: conn, user: user} do
+      insert(:subscription,
+        paddle_plan_id: "558018",
+        paddle_subscription_id: "redundant",
+        user: user
+      )
+
+      conn = get(conn, "/settings")
+      assert html_response(conn, 200) =~ "Dec 24, 2020"
+      assert html_response(conn, 200) =~ "€11.11"
+      assert html_response(conn, 200) =~ "Nov 24, 2020"
+      assert html_response(conn, 200) =~ "$22.00"
+    end
+
+    test "shows 'something went wrong' on failed invoice request'", %{conn: conn, user: user} do
+      insert(:subscription,
+        paddle_plan_id: "558018",
+        paddle_subscription_id: "invalid_subscription_id",
+        user: user
+      )
+
+      conn = get(conn, "/settings")
+      assert html_response(conn, 200) =~ "Invoices"
+      assert html_response(conn, 200) =~ "Something went wrong"
+    end
+
+    test "does not show invoice section for a user with no subscription", %{conn: conn} do
+      conn = get(conn, "/settings")
+      refute html_response(conn, 200) =~ "Invoices"
+    end
+
+    test "does not show invoice section for a free subscription", %{conn: conn, user: user} do
+      Plausible.Billing.Subscription.free(%{user_id: user.id, currency_code: "EUR"})
+      |> Repo.insert!()
+
+      conn = get(conn, "/settings")
+      refute html_response(conn, 200) =~ "Invoices"
+    end
+  end
+
+  describe "PUT /settings" do
+    setup [:create_user, :log_in]
+
+    test "updates user record", %{conn: conn, user: user} do
+      put(conn, "/settings", %{"user" => %{"name" => "New name"}})
+
+      user = Plausible.Repo.get(Auth.User, user.id)
+      assert user.name == "New name"
+    end
+
+    test "does not allow setting non-profile fields", %{conn: conn, user: user} do
+      expiry_date = user.trial_expiry_date
+
+      assert %Date{} = expiry_date
+
+      put(conn, "/settings", %{
+        "user" => %{"name" => "New name", "trial_expiry_date" => "2023-07-14"}
+      })
+
+      assert Repo.reload!(user).trial_expiry_date == expiry_date
+    end
+
+    test "redirects user to /settings", %{conn: conn} do
+      conn = put(conn, "/settings", %{"user" => %{"name" => "New name"}})
+
+      assert redirected_to(conn, 302) == "/settings"
+    end
+
+    test "renders form with error if form validations fail", %{conn: conn} do
+      conn = put(conn, "/settings", %{"user" => %{"name" => ""}})
+
+      assert html_response(conn, 200) =~ "can&#39;t be blank"
+    end
+  end
+
+  describe "PUT /settings/email" do
+    setup [:create_user, :log_in]
+
+    test "updates email and forces reverification", %{conn: conn, user: user} do
+      password = "very-long-very-secret-123"
+
+      user
+      |> Auth.User.set_password(password)
+      |> Repo.update!()
+
+      assert user.email_verified
+
+      conn =
+        put(conn, "/settings/email", %{
+          "user" => %{"email" => "new" <> user.email, "password" => password}
+        })
+
+      assert redirected_to(conn, 302) == Routes.user_path(conn, :activate)
+
+      updated_user = Repo.reload!(user)
+
+      assert updated_user.email == "new" <> user.email
+      assert updated_user.previous_email == user.email
+      refute updated_user.email_verified
+
+      assert_delivered_email_matches(%{to: [{_, user_email}], subject: subject})
+      assert user_email == updated_user.email
+      assert subject =~ "is your Plausible email verification code"
+    end
+
+    test "renders form with error on no fields filled", %{conn: conn} do
+      conn = put(conn, "/settings/email", %{"user" => %{}})
+
+      assert html_response(conn, 200) =~ "can&#39;t be blank"
+    end
+
+    test "renders form with error on invalid password", %{conn: conn, user: user} do
+      conn =
+        put(conn, "/settings/email", %{
+          "user" => %{"password" => "invalid", "email" => "new" <> user.email}
+        })
+
+      assert html_response(conn, 200) =~ "is invalid"
+    end
+
+    test "renders form with error on already taken email", %{conn: conn, user: user} do
+      other_user = insert(:user)
+
+      password = "very-long-very-secret-123"
+
+      user
+      |> Auth.User.set_password(password)
+      |> Repo.update!()
+
+      conn =
+        put(conn, "/settings/email", %{
+          "user" => %{"password" => password, "email" => other_user.email}
+        })
+
+      assert html_response(conn, 200) =~ "has already been taken"
+    end
+
+    test "renders form with error when email is identical with the current one", %{
+      conn: conn,
+      user: user
+    } do
+      password = "very-long-very-secret-123"
+
+      user
+      |> Auth.User.set_password(password)
+      |> Repo.update!()
+
+      conn =
+        put(conn, "/settings/email", %{
+          "user" => %{"password" => password, "email" => user.email}
+        })
+
+      assert html_response(conn, 200) =~ "can&#39;t be the same"
+    end
+  end
+
+  describe "POST /settings/email/cancel" do
+    setup [:create_user, :log_in]
+
+    test "cancels email reverification in progress", %{conn: conn, user: user} do
+      user =
+        user
+        |> Ecto.Changeset.change(
+          email_verified: false,
+          email: "new" <> user.email,
+          previous_email: user.email
+        )
+        |> Repo.update!()
+
+      conn = post(conn, "/settings/email/cancel")
+
+      assert redirected_to(conn, 302) ==
+               Routes.user_path(conn, :user_settings) <> "#change-email-address"
+
+      updated_user = Repo.reload!(user)
+
+      assert updated_user.email_verified
+      assert updated_user.email == user.previous_email
+      refute updated_user.previous_email
+    end
+
+    test "fails to cancel reverification when previous email is already retaken", %{
+      conn: conn,
+      user: user
+    } do
+      user =
+        user
+        |> Ecto.Changeset.change(
+          email_verified: false,
+          email: "new" <> user.email,
+          previous_email: user.email
+        )
+        |> Repo.update!()
+
+      _other_user = insert(:user, email: user.previous_email)
+
+      conn = post(conn, "/settings/email/cancel")
+
+      assert redirected_to(conn, 302) == Routes.user_path(conn, :activate_form)
+
+      assert Phoenix.Flash.get(conn.assigns.flash, :error) =~
+               "Could not cancel email update"
+    end
+
+    test "crashes when previous email is empty on cancel (should not happen)", %{
+      conn: conn,
+      user: user
+    } do
+      user
+      |> Ecto.Changeset.change(
+        email_verified: false,
+        email: "new" <> user.email,
+        previous_email: nil
+      )
+      |> Repo.update!()
+
+      assert_raise RuntimeError, ~r/Previous email is empty for user/, fn ->
+        post(conn, "/settings/email/cancel")
+      end
+    end
+  end
+
+  describe "DELETE /me" do
+    setup [:create_user, :log_in, :create_new_site]
+    use Plausible.Repo
+
+    test "deletes the user", %{conn: conn, user: user, site: site} do
+      Repo.insert_all("intro_emails", [
+        %{
+          user_id: user.id,
+          timestamp: NaiveDateTime.utc_now()
+        }
+      ])
+
+      Repo.insert_all("feedback_emails", [
+        %{
+          user_id: user.id,
+          timestamp: NaiveDateTime.utc_now()
+        }
+      ])
+
+      Repo.insert_all("create_site_emails", [
+        %{
+          user_id: user.id,
+          timestamp: NaiveDateTime.utc_now()
+        }
+      ])
+
+      Repo.insert_all("check_stats_emails", [
+        %{
+          user_id: user.id,
+          timestamp: NaiveDateTime.utc_now()
+        }
+      ])
+
+      Repo.insert_all("sent_renewal_notifications", [
+        %{
+          user_id: user.id,
+          timestamp: NaiveDateTime.utc_now()
+        }
+      ])
+
+      insert(:google_auth, site: site, user: user)
+      insert(:subscription, user: user, status: Subscription.Status.deleted())
+      insert(:subscription, user: user, status: Subscription.Status.active())
+
+      conn = delete(conn, "/me")
+      assert redirected_to(conn) == "/logout"
+      assert Repo.reload(site) == nil
+      assert Repo.reload(user) == nil
+      assert Repo.all(Plausible.Billing.Subscription) == []
+    end
+
+    test "deletes sites that the user owns", %{conn: conn, user: user, site: owner_site} do
+      viewer_site = insert(:site)
+      insert(:site_membership, site: viewer_site, user: user, role: "viewer")
+
+      delete(conn, "/me")
+
+      assert Repo.get(Plausible.Site, viewer_site.id)
+      refute Repo.get(Plausible.Site, owner_site.id)
+    end
+  end
+
+  describe "POST /settings/api-keys" do
+    setup [:create_user, :log_in]
+    import Ecto.Query
+
+    test "can create an API key", %{conn: conn, user: user} do
+      insert(:site, memberships: [build(:site_membership, user: user, role: "owner")])
+
+      conn =
+        post(conn, "/settings/api-keys", %{
+          "api_key" => %{
+            "user_id" => user.id,
+            "name" => "all your code are belong to us",
+            "key" => "swordfish"
+          }
+        })
+
+      key = Auth.ApiKey |> where(user_id: ^user.id) |> Repo.one()
+      assert conn.status == 302
+      assert key.name == "all your code are belong to us"
+    end
+
+    test "cannot create a duplicate API key", %{conn: conn, user: user} do
+      insert(:site, memberships: [build(:site_membership, user: user, role: "owner")])
+
+      conn =
+        post(conn, "/settings/api-keys", %{
+          "api_key" => %{
+            "user_id" => user.id,
+            "name" => "all your code are belong to us",
+            "key" => "swordfish"
+          }
+        })
+
+      conn2 =
+        post(conn, "/settings/api-keys", %{
+          "api_key" => %{
+            "user_id" => user.id,
+            "name" => "all your code are belong to us",
+            "key" => "swordfish"
+          }
+        })
+
+      assert html_response(conn2, 200) =~ "has already been taken"
+    end
+
+    test "can't create api key into another site", %{conn: conn, user: me} do
+      _my_site = insert(:site, memberships: [build(:site_membership, user: me, role: "owner")])
+
+      other_user = insert(:user)
+
+      _other_site =
+        insert(:site, memberships: [build(:site_membership, user: other_user, role: "owner")])
+
+      conn =
+        post(conn, "/settings/api-keys", %{
+          "api_key" => %{
+            "user_id" => other_user.id,
+            "name" => "all your code are belong to us",
+            "key" => "swordfish"
+          }
+        })
+
+      assert conn.status == 302
+
+      refute Auth.ApiKey |> where(user_id: ^other_user.id) |> Repo.one()
+    end
+  end
+
+  describe "DELETE /settings/api-keys/:id" do
+    setup [:create_user, :log_in]
+    alias Auth.ApiKey
+
+    test "can't delete api key that doesn't belong to me", %{conn: conn} do
+      other_user = insert(:user)
+      insert(:site, memberships: [build(:site_membership, user: other_user, role: "owner")])
+
+      assert {:ok, %ApiKey{} = api_key} =
+               %ApiKey{user_id: other_user.id}
+               |> ApiKey.changeset(%{"name" => "other user's key"})
+               |> Repo.insert()
+
+      conn = delete(conn, "/settings/api-keys/#{api_key.id}")
+      assert Phoenix.Flash.get(conn.assigns.flash, :error) == "Could not find API Key to delete"
+      assert Repo.get(ApiKey, api_key.id)
+    end
+  end
+
+  defp configure_enterprise_plan(user) do
+    insert(:enterprise_plan,
+      paddle_plan_id: @configured_enterprise_plan_paddle_plan_id,
+      user: user,
+      monthly_pageview_limit: 20_000_000,
+      billing_interval: :yearly
+    )
+  end
+end

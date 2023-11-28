@@ -241,7 +241,7 @@
         </a>
       </p>
     <% else %>
-      <%= form_for @conn.params, Routes.auth_path(@conn, :initiate_2fa_setup), fn _ -> %>
+      <%= form_for @conn.params, Routes.user_path(@conn, :initiate_2fa_setup), fn _ -> %>
         <PlausibleWeb.Components.Generic.button type="submit" class="mt-4">
           Enable 2FA
         </PlausibleWeb.Components.Generic.button>
@@ -392,7 +392,7 @@
 
           <PlausibleWeb.Components.Generic.button_link
             :if={Plausible.Billing.Feature.StatsAPI.check_availability(@current_user) == :ok}
-            href={Routes.auth_path(@conn, :new_api_key)}
+            href={Routes.user_path(@conn, :new_api_key)}
             class="mt-4"
           >
             + New API Key
@@ -440,7 +440,7 @@
     id="disable-2fa-modal"
     state_param="disable2FAOpen"
     form_data={@conn.params}
-    form_target={Routes.auth_path(@conn, :disable_2fa)}
+    form_target={Routes.user_path(@conn, :disable_2fa)}
     title="Disable Two-Factor Authentication?"
   >
     <:icon>
@@ -477,7 +477,7 @@
     id="regenerate-2fa-modal"
     state_param="regenerate2FAOpen"
     form_data={@conn.params}
-    form_target={Routes.auth_path(@conn, :generate_2fa_recovery_codes)}
+    form_target={Routes.user_path(@conn, :generate_2fa_recovery_codes)}
     onsubmit="document.getElementById('generate-2fa-recovery-button').disabled = true"
     title="Generate New Recovery Codes?"
   >

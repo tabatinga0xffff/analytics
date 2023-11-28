@@ -5,7 +5,7 @@
     </h2>
 
     <div class="text-sm mt-2 text-gray-500 dark:text-gray-200 leading-tight">
-      <%= form_for @conn.params, Routes.auth_path(@conn, :verify_2fa_setup), [
+      <%= form_for @conn.params, Routes.user_path(@conn, :verify_2fa_setup), [
         onsubmit: "document.getElementById('verify-button').disabled = true"
       ], fn f -> %>
         Enter the code from your authenticator application before it expires or wait for a new one.
@@ -16,7 +16,7 @@
         <p class="text-sm">
           Changed your mind?
           <a
-            href={Routes.auth_path(@conn, :user_settings) <> "#setup-2fa"}
+            href={Routes.user_path(@conn, :user_settings) <> "#setup-2fa"}
             class="underline text-indigo-600"
           >
             Go back to settings
@@ -24,7 +24,7 @@
         </p>
 
         <p class="text-sm">
-          <%= form_for @conn.params, Routes.auth_path(@conn, :initiate_2fa_setup), [id: "start-over-form"], fn _f -> %>
+          <%= form_for @conn.params, Routes.user_path(@conn, :initiate_2fa_setup), [id: "start-over-form"], fn _f -> %>
             Having trouble?
             <button class="underline text-indigo-600">
               Start over
