@@ -48,6 +48,14 @@ defmodule Plausible.GoalsTest do
     assert {"has already been taken", _} = changeset.errors[:event_name]
   end
 
+  test "create/2 fails to create goal name starting with !" do
+    site = insert(:site)
+    {:error, changeset} = Goals.create(site, %{"event_name" => "!foo bar"})
+
+    assert {"this field is required and must not start with a !", _} =
+             changeset.errors[:event_name]
+  end
+
   @tag :full_build_only
   test "create/2 sets site.updated_at for revenue goal" do
     site_1 = insert(:site, updated_at: DateTime.add(DateTime.utc_now(), -3600))

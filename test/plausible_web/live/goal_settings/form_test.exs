@@ -71,7 +71,7 @@ defmodule PlausibleWeb.Live.GoalSettings.FormTest do
       assert html =~ "this field is required and cannot be blank"
 
       pageview_tab = lv |> element(~s/a#pageview-tab/) |> render_click()
-      assert pageview_tab =~ "this field is required and must start with a /"
+      assert pageview_tab =~ "this field is required and cannot be blank"
     end
 
     test "creates a custom event", %{conn: conn, site: site} do

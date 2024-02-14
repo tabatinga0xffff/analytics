@@ -57,23 +57,29 @@ defmodule Plausible.Goal do
   end
 
   defp validate_event_name_and_page_path(changeset) do
-    if validate_page_path(changeset) || validate_event_name(changeset) do
-      changeset
-    else
-      changeset
-      |> add_error(:event_name, "this field is required and cannot be blank")
-      |> add_error(:page_path, "this field is required and must start with a /")
+    page_path = get_field(changeset, :page_path)
+    event_name = get_field(changeset, :event_name)
+
+    cond do
+      page_path && String.match?(page_path, ~r/^\/.*/) ->
+        changeset
+
+      event_name && String.match?(event_name, ~r/^[^!].+/) ->
+        changeset
+
+      page_path ->
+        changeset
+        |> add_error(:page_path, "this field is required and must start with a /")
+
+      event_name ->
+        changeset
+        |> add_error(:event_name, "this field is required and must not start with a !")
+
+      true ->
+        changeset
+        |> add_error(:event_name, "this field is required and cannot be blank")
+        |> add_error(:page_path, "this field is required and cannot be blank")
     end
-  end
-
-  defp validate_page_path(changeset) do
-    value = get_field(changeset, :page_path)
-    value && String.match?(value, ~r/^\/.*/)
-  end
-
-  defp validate_event_name(changeset) do
-    value = get_field(changeset, :event_name)
-    value && String.match?(value, ~r/^.+/)
   end
 
   defp maybe_drop_currency(changeset) do
