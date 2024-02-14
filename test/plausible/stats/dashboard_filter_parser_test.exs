@@ -11,8 +11,14 @@ defmodule Plausible.Stats.DashboardFilterParserTest do
       %{"page" => "/"}
       |> assert_parsed(%{"event:page" => {:is, "/"}})
 
+      %{"page" => "!/"}
+      |> assert_parsed(%{"event:page" => {:is_not, "/"}})
+
       %{"goal" => "Signup"}
       |> assert_parsed(%{"event:goal" => {:is, {:event, "Signup"}}})
+
+      %{"goal" => "!Signup"}
+      |> assert_parsed(%{"event:goal" => {:is_not, {:event, "Signup"}}})
 
       %{"goal" => "Visit /blog"}
       |> assert_parsed(%{"event:goal" => {:is, {:page, "/blog"}}})
@@ -109,6 +115,11 @@ defmodule Plausible.Stats.DashboardFilterParserTest do
 
       %{"goal" => "Visit /thank-you|Signup"}
       |> assert_parsed(%{"event:goal" => {:member, [{:page, "/thank-you"}, {:event, "Signup"}]}})
+
+      %{"goal" => "!Visit /thank-you|Signup"}
+      |> assert_parsed(%{
+        "event:goal" => {:not_member, [{:page, "/thank-you"}, {:event, "Signup"}]}
+      })
     end
   end
 

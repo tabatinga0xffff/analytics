@@ -18,7 +18,8 @@ defmodule Plausible.Stats.Filters.StatsAPIFilterParser do
   defp parse_single_filter(str) do
     case to_kv(str) do
       ["event:goal" = key, raw_value] ->
-        {key, parse_goal_filter(raw_value)}
+        is_negated? = String.contains?(str, "!=")
+        {key, parse_goal_filter(raw_value, is_negated?)}
 
       [key, raw_value] ->
         is_negated? = String.contains?(str, "!=")
@@ -59,7 +60,7 @@ defmodule Plausible.Stats.Filters.StatsAPIFilterParser do
     |> Enum.map(&String.trim/1)
   end
 
-  defp parse_goal_filter(value) do
+  defp parse_goal_filter(value, is_negated?) do
     is_list? = list_expression?(value)
     is_wildcard? = wildcard_expression?(value)
 
@@ -72,6 +73,8 @@ defmodule Plausible.Stats.Filters.StatsAPIFilterParser do
       |> wrap_goal_value()
 
     cond do
+      is_negated? && is_list? -> {:not_member, value}
+      is_negated? -> {:is_not, value}
       is_list? && is_wildcard? -> {:matches_member, value}
       is_list? -> {:member, value}
       is_wildcard? -> {:matches, value}

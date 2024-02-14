@@ -472,6 +472,129 @@ defmodule PlausibleWeb.Api.StatsController.ConversionsTest do
       assert get_with_filter.(%{goal: "Visit+/register|Visit+/regi**"}) == expected
     end
 
+    test "goal filter negations", %{
+      conn: conn,
+      site: site
+    } do
+      populate_stats(site, [
+        build(:pageview, pathname: "/"),
+        build(:pageview, pathname: "/register"),
+        build(:pageview, pathname: "/logout"),
+        build(:event, pathname: "/register", name: "Signup")
+      ])
+
+      insert(:goal, %{site: site, page_path: "/register"})
+      insert(:goal, %{site: site, page_path: "/logout"})
+      insert(:goal, %{site: site, page_path: "/regi*"})
+      insert(:goal, %{site: site, event_name: "Signup"})
+
+      get_with_filter = fn filters ->
+        path = "/api/stats/#{site.domain}/conversions"
+        query = "?period=day&filters=#{Jason.encode!(filters)}"
+
+        get(conn, path <> query)
+        |> json_response(200)
+      end
+
+      # {:is_not, {:page, path}} filter type
+      assert get_with_filter.(%{goal: "!Visit /logout"}) == [
+               %{"conversion_rate" => 25.0, "events" => 1, "name" => "Signup", "visitors" => 1},
+               %{
+                 "conversion_rate" => 25.0,
+                 "events" => 1,
+                 "name" => "Visit /register",
+                 "visitors" => 1
+               },
+               %{
+                 "conversion_rate" => 25.0,
+                 "events" => 1,
+                 "name" => "Visit /regi*",
+                 "visitors" => 1
+               }
+             ]
+
+      # {:is_not, {:event, event}} filter type
+      assert get_with_filter.(%{goal: "!Signup"}) == [
+               %{
+                 "conversion_rate" => 25.0,
+                 "events" => 1,
+                 "name" => "Visit /register",
+                 "visitors" => 1
+               },
+               %{
+                 "conversion_rate" => 25.0,
+                 "events" => 1,
+                 "name" => "Visit /logout",
+                 "visitors" => 1
+               },
+               %{
+                 "conversion_rate" => 25.0,
+                 "events" => 1,
+                 "name" => "Visit /regi*",
+                 "visitors" => 1
+               }
+             ]
+
+      # {:does_not_match, {:page, expr}} filter type
+      assert get_with_filter.(%{goal: "!Visit /regi*"}) == [
+               %{
+                 "conversion_rate" => 25.0,
+                 "events" => 1,
+                 "name" => "Visit /logout",
+                 "visitors" => 1
+               }
+             ]
+
+      # {:not_matches_member, clauses} filter type
+      assert get_with_filter.(%{goal: "!Visit /logout|Signup"}) ==
+               [
+                 %{
+                   "conversion_rate" => 25.0,
+                   "events" => 1,
+                   "name" => "Visit /register",
+                   "visitors" => 1
+                 },
+                 %{
+                   "conversion_rate" => 25.0,
+                   "events" => 1,
+                   "name" => "Visit /regi*",
+                   "visitors" => 1
+                 }
+               ]
+    end
+
+    test "goal exclusion with single custom event on two different paths", %{
+      conn: conn,
+      site: site
+    } do
+      populate_stats(site, [
+        build(:event, pathname: "/register", name: "Signup"),
+        build(:event, pathname: "/promo/123/signup", name: "Signup")
+      ])
+
+      insert(:goal, %{site: site, page_path: "/regi*"})
+      insert(:goal, %{site: site, page_path: "/arbitrary"})
+      insert(:goal, %{site: site, event_name: "Signup"})
+
+      get_with_filter = fn filters ->
+        path = "/api/stats/#{site.domain}/conversions"
+        query = "?period=day&filters=#{Jason.encode!(filters)}"
+
+        get(conn, path <> query)
+        |> json_response(200)
+      end
+
+      assert get_with_filter.(%{goal: "!Visit /arbitrary"}) == [
+               %{"conversion_rate" => 100.0, "events" => 2, "name" => "Signup", "visitors" => 2}
+             ]
+
+      assert get_with_filter.(%{goal: "!Visit /regi*"}) == [
+               %{"conversion_rate" => 50.0, "events" => 1, "name" => "Signup", "visitors" => 1}
+             ]
+
+      assert get_with_filter.(%{goal: "!Signup"}) == []
+    end
+
     test "can filter by multiple mixed goals", %{conn: conn, site: site} do
       populate_stats(site, [
         build(:pageview, pathname: "/"),

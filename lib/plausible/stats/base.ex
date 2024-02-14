@@ -7,6 +7,8 @@ defmodule Plausible.Stats.Base do
   alias Plausible.Timezones
   import Ecto.Query
 
+  require Logger
+
   @no_ref "Direct / None"
   @not_set "(not set)"
 
@@ -65,6 +67,9 @@ defmodule Plausible.Stats.Base do
         {:is, {:page, path}} ->
           from(e in q, where: e.pathname == ^path and e.name == "pageview")
 
+        {:is_not, {:page, path}} ->
+          from(e in q, where: e.pathname != ^path)
+
         {:matches, {:page, expr}} ->
           regex = page_regex(expr)
 
@@ -72,14 +77,31 @@ defmodule Plausible.Stats.Base do
             where: fragment("match(?, ?)", e.pathname, ^regex) and e.name == "pageview"
           )
 
+        {:does_not_match, {:page, expr}} ->
+          regex = page_regex(expr)
+
+          from(e in q,
+            where: fragment("not(match(?, ?))", e.pathname, ^regex)
+          )
+
         {:is, {:event, event}} ->
           from(e in q, where: e.name == ^event)
+
+        {:is_not, {:event, event}} ->
+          from(e in q, where: e.name != ^event)
 
         {:member, clauses} ->
           {events, pages} = split_goals(clauses)
 
           from(e in q,
             where: (e.pathname in ^pages and e.name == "pageview") or e.name in ^events
+          )
+
+        {:not_member, clauses} ->
+          {events, pages} = split_goals(clauses)
+
+          from(e in q,
+            where: e.pathname not in ^pages and e.name not in ^events
           )
 
         {:matches_member, clauses} ->
@@ -106,7 +128,41 @@ defmodule Plausible.Stats.Base do
 
           from(e in q, where: ^where_clause)
 
+        {:not_matches_member, clauses} ->
+          {events, pages} = split_goals(clauses, &page_regex/1)
+
+          event_clause =
+            if Enum.any?(events) do
+              dynamic(
+                [x],
+                fragment("not(multiMatchAny(?, ?))", x.name, ^events)
+              )
+            else
+              dynamic([x], false)
+            end
+
+          page_clause =
+            if Enum.any?(pages) do
+              dynamic(
+                [x],
+                fragment("not(multiMatchAny(?, ?))", x.pathname, ^pages)
+              )
+            else
+              dynamic([x], false)
+            end
+
+          where_clause = dynamic([], ^event_clause and ^page_clause)
+
+          from(e in q, where: ^where_clause)
+
         nil ->
+          q
+
+        clause ->
+          Logger.error(
+            "Unsupported goal filter clause: #{inspect(clause)}. Falling back to unfiltered query."
+          )
+
           q
       end
 

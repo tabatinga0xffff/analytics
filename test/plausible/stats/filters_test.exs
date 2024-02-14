@@ -40,6 +40,14 @@ defmodule Plausible.Stats.FiltersTest do
       |> assert_parsed(%{"event:goal" => {:is, {:event, "Signup"}}})
     end
 
+    test "negative goals" do
+      "event:goal!=Signup"
+      |> assert_parsed(%{"event:goal" => {:is_not, {:event, "Signup"}}})
+
+      "event:goal!=Signup|Visit /blog"
+      |> assert_parsed(%{"event:goal" => {:not_member, [event: "Signup", page: "/blog"]}})
+    end
+
     test "pageview goal" do
       "event:goal==Visit /blog"
       |> assert_parsed(%{"event:goal" => {:is, {:page, "/blog"}}})
