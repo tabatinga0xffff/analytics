@@ -3,6 +3,8 @@ defmodule Plausible.TimezonesTest do
 
   import Plausible.Timezones
 
+  doctest Plausible.Timezones, import: true
+
   test "options/0 returns a list of timezones" do
     options = options()
     refute Enum.empty?(options)
@@ -29,14 +31,14 @@ defmodule Plausible.TimezonesTest do
   end
 
   test "to_date_in_timezone/1" do
-    assert to_date_in_timezone(~D[2021-01-03], "Etc/UTC") == ~D[2021-01-03]
     assert to_date_in_timezone(~U[2015-01-13 13:00:07Z], "Etc/UTC") == ~D[2015-01-13]
     assert to_date_in_timezone(~N[2015-01-13 13:00:07], "Etc/UTC") == ~D[2015-01-13]
-    assert to_date_in_timezone(~N[2015-01-13 19:00:07], "Etc/GMT+12") == ~D[2015-01-14]
+    assert to_date_in_timezone(~N[2015-01-13 19:00:07], "Etc/GMT+12") == ~D[2015-01-13]
+    assert to_date_in_timezone(~N[2015-01-13 11:00:07], "Etc/GMT+12") == ~D[2015-01-12]
+    assert to_date_in_timezone(~N[2015-01-13 19:00:07], "Etc/GMT-12") == ~D[2015-01-14]
   end
 
   test "to_datetime_in_timezone/1" do
-    assert to_datetime_in_timezone(~D[2021-01-03], "Etc/UTC") == ~U[2021-01-03 00:00:00Z]
     assert to_datetime_in_timezone(~N[2015-01-13 13:00:07], "Etc/UTC") == ~U[2015-01-13 13:00:07Z]
 
     assert to_datetime_in_timezone(~N[2015-01-13 19:00:07], "Etc/GMT+12") ==
@@ -45,13 +47,13 @@ defmodule Plausible.TimezonesTest do
                second: 7,
                calendar: Calendar.ISO,
                month: 1,
-               day: 14,
+               day: 13,
                year: 2015,
                minute: 0,
                hour: 7,
-               time_zone: "Etc/GMT-12",
-               zone_abbr: "+12",
-               utc_offset: 43_200,
+               time_zone: "Etc/GMT+12",
+               zone_abbr: "-12",
+               utc_offset: -43_200,
                std_offset: 0
              }
 

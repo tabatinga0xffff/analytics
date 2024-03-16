@@ -23,15 +23,31 @@ defmodule Plausible.Timezones do
     end
   end
 
-  @spec to_date_in_timezone(Date.t() | NaiveDateTime.t() | DateTime.t(), String.t()) :: Date.t()
+  @spec to_date_in_timezone(NaiveDateTime.t() | DateTime.t(), String.t()) :: Date.t()
   def to_date_in_timezone(dt, timezone) do
-    to_datetime_in_timezone(dt, timezone) |> Timex.to_date()
+    dt |> to_datetime_in_timezone(timezone) |> DateTime.to_date()
   end
 
-  @spec to_datetime_in_timezone(Date.t() | NaiveDateTime.t() | DateTime.t(), String.t()) ::
+  @doc """
+  Represents a point in time in a different timezone.
+  Naive datetimes are assumed to be GMT.
+
+  Examples:
+
+      iex> to_datetime_in_timezone(~U[2024-03-16 01:50:45.180928Z], "Asia/Kuala_Lumpur")
+      #DateTime<2024-03-16 09:50:45.180928+08:00 +08 Asia/Kuala_Lumpur>
+
+  """
+  @spec to_datetime_in_timezone(NaiveDateTime.t() | DateTime.t(), String.t()) ::
           DateTime.t()
-  def to_datetime_in_timezone(dt, timezone) do
-    dt |> Timex.to_datetime("UTC") |> Timex.Timezone.convert(timezone)
+  def to_datetime_in_timezone(%NaiveDateTime{} = naive, timezone) do
+    naive
+    |> DateTime.from_naive!("Etc/UTC")
+    |> to_datetime_in_timezone(timezone)
+  end
+
+  def to_datetime_in_timezone(%DateTime{} = dt, timezone) do
+    DateTime.shift_zone!(dt, timezone)
   end
 
   defp build_option(timezone_code, acc, now) do
