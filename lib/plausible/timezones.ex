@@ -90,12 +90,7 @@ defmodule Plausible.Timezones do
 
   @doc """
   Represents a point in time in a different timezone.
-  Naive datetimes are assumed to be GMT.
-
-  Examples:
-
-      iex> to_datetime_in_timezone(~U[2024-03-16 01:50:45Z], "Asia/Kuala_Lumpur")
-      #DateTime<2024-03-16 09:50:45+08:00 +08 Asia/Kuala_Lumpur>
+  Naive datetimes are assumed to be in GMT timezone.
 
       iex> to_datetime_in_timezone(~N[2024-03-16 01:50:45], "Asia/Kuala_Lumpur")
       #DateTime<2024-03-16 09:50:45+08:00 +08 Asia/Kuala_Lumpur>
