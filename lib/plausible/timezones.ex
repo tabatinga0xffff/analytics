@@ -37,6 +37,12 @@ defmodule Plausible.Timezones do
       iex> to_datetime_in_timezone(~U[2024-03-16 01:50:45.180928Z], "Asia/Kuala_Lumpur")
       #DateTime<2024-03-16 09:50:45.180928+08:00 +08 Asia/Kuala_Lumpur>
 
+      iex> to_datetime_in_timezone(~N[2024-03-16 01:50:45.180928], "Asia/Kuala_Lumpur")
+      #DateTime<2024-03-16 09:50:45.180928+08:00 +08 Asia/Kuala_Lumpur>
+
+      iex> to_datetime_in_timezone(~N[2024-03-16 01:50:45.180928], "Etc/GMT-8")
+      #DateTime<2024-03-16 09:50:45.180928+08:00 +08 Etc/GMT-8>
+
   """
   @spec to_datetime_in_timezone(NaiveDateTime.t() | DateTime.t(), String.t()) ::
           DateTime.t()
