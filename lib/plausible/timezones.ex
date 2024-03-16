@@ -107,8 +107,6 @@ defmodule Plausible.Timezones do
       iex> to_datetime_in_timezone(~N[2024-03-16 01:50:45], "GMT+8")
       #DateTime<2024-03-16 09:50:45+08:00 +08 GMT+8>
 
-      # amniguous
-
   """
   @spec to_datetime_in_timezone(NaiveDateTime.t() | DateTime.t() | Date.t(), String.t()) ::
           DateTime.t()
