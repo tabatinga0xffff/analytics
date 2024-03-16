@@ -23,7 +23,7 @@ defmodule Plausible.Timezones do
     end
   end
 
-  @spec to_date_in_timezone(NaiveDateTime.t() | DateTime.t(), String.t()) :: Date.t()
+  @spec to_date_in_timezone(NaiveDateTime.t() | DateTime.t() | Date.t(), String.t()) :: Date.t()
   def to_date_in_timezone(dt, timezone) do
     dt |> to_datetime_in_timezone(timezone) |> DateTime.to_date()
   end
@@ -44,11 +44,17 @@ defmodule Plausible.Timezones do
       #DateTime<2024-03-16 09:50:45.180928+08:00 +08 Etc/GMT-8>
 
   """
-  @spec to_datetime_in_timezone(NaiveDateTime.t() | DateTime.t(), String.t()) ::
+  @spec to_datetime_in_timezone(NaiveDateTime.t() | DateTime.t() | Date.t(), String.t()) ::
           DateTime.t()
   def to_datetime_in_timezone(%NaiveDateTime{} = naive, timezone) do
     naive
     |> DateTime.from_naive!("Etc/UTC")
+    |> to_datetime_in_timezone(timezone)
+  end
+
+  def to_datetime_in_timezone(%Date{} = date, timezone) do
+    date
+    |> DateTime.new!(~T[00:00:00], "Etc/UTC")
     |> to_datetime_in_timezone(timezone)
   end
 
