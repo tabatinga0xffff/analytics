@@ -31,6 +31,7 @@ defmodule Plausible.TimezonesTest do
   end
 
   test "to_date_in_timezone/1" do
+    assert to_date_in_timezone(~D[2021-01-03], "Etc/UTC") == ~D[2021-01-03]
     assert to_date_in_timezone(~U[2015-01-13 13:00:07Z], "Etc/UTC") == ~D[2015-01-13]
     assert to_date_in_timezone(~N[2015-01-13 13:00:07], "Etc/UTC") == ~D[2015-01-13]
     assert to_date_in_timezone(~N[2015-01-13 19:00:07], "Etc/GMT+12") == ~D[2015-01-13]
@@ -39,6 +40,7 @@ defmodule Plausible.TimezonesTest do
   end
 
   test "to_datetime_in_timezone/1" do
+    assert to_datetime_in_timezone(~D[2021-01-03], "Etc/UTC") == ~U[2021-01-03 00:00:00Z]
     assert to_datetime_in_timezone(~N[2015-01-13 13:00:07], "Etc/UTC") == ~U[2015-01-13 13:00:07Z]
 
     assert to_datetime_in_timezone(~N[2015-01-13 19:00:07], "Etc/GMT+12") ==
@@ -71,5 +73,29 @@ defmodule Plausible.TimezonesTest do
              utc_offset: 3600,
              std_offset: 3600
            }
+
+    ambiguous = [
+      ~N[2018-10-28 00:00:00],
+      ~N[2018-10-28 00:30:00],
+      ~N[2018-10-28 01:00:00],
+      ~N[2018-10-28 01:30:00]
+    ]
+
+    assert for(t <- ambiguous, do: inspect(to_datetime_in_timezone(t, "Europe/Copenhagen"))) == [
+             "#DateTime<2018-10-28 02:00:00+02:00 CEST Europe/Copenhagen>",
+             "#DateTime<2018-10-28 02:30:00+02:00 CEST Europe/Copenhagen>",
+             "#DateTime<2018-10-28 02:00:00+01:00 CET Europe/Copenhagen>",
+             "#DateTime<2018-10-28 02:30:00+01:00 CET Europe/Copenhagen>"
+           ]
+
+    gap = [
+      ~N[2019-03-31 00:59:59],
+      ~N[2019-03-31 01:00:00]
+    ]
+
+    assert for(t <- gap, do: inspect(to_datetime_in_timezone(t, "Europe/Copenhagen"))) == [
+             "#DateTime<2019-03-31 01:59:59+01:00 CET Europe/Copenhagen>",
+             "#DateTime<2019-03-31 03:00:00+02:00 CEST Europe/Copenhagen>"
+           ]
   end
 end

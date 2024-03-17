@@ -7,13 +7,13 @@ defmodule Plausible.Timezones do
   end
 
   @doc """
-  Represents a point in wall time as UTC.
+  Represents wall time as Etc/UTC.
 
       iex> to_utc_datetime(~N[2024-03-16 09:50:45], "Asia/Kuala_Lumpur")
       ~U[2024-03-16 01:50:45Z]
 
-  When the point in wall time is ambiguous - for instance during changing from summer to winter time -
-  the larger UTC timestamp is returned by default.
+  When wall time is ambiguous - for instance during changing from summer to winter time -
+  the larger Etc/UTC timestamp is returned by default.
 
       # before the CEST -> CET overlap
       iex> to_utc_datetime(~N[2018-10-28 01:59:59], "Europe/Copenhagen")
@@ -37,7 +37,7 @@ defmodule Plausible.Timezones do
       ~U[2018-10-28 02:00:00Z]
 
   When there is a gap in wall time - for instance in spring when the clocks are turned forward -
-  the larger UTC timestamp (at the end of the gap) is returned by default as well.
+  the larger Etc/UTC timestamp (at the end of the gap) is returned by default as well.
 
       # before the CET -> CEST gap
       iex> to_utc_datetime(~N[2019-03-31 01:59:59], "Europe/Copenhagen")
@@ -57,7 +57,7 @@ defmodule Plausible.Timezones do
       iex> to_utc_datetime(~N[2019-03-31 03:00:00], "Europe/Copenhagen")
       ~U[2019-03-31 01:00:00Z]
 
-  If the supplied time zone is invalid, the wall time is assumed to be GMT.
+  If the supplied time zone is invalid, the wall time is assumed to be Etc/UTC.
 
       iex> to_utc_datetime(~N[2024-03-16 09:50:45], "Europe/Asia")
       ~U[2024-03-16 09:50:45Z]
@@ -83,14 +83,22 @@ defmodule Plausible.Timezones do
   defp pick_datetime(:up, _, dt), do: dt
   defp pick_datetime(:down, dt, _), do: dt
 
+  @doc """
+  Same as `to_datetime_in_timezone/2` but extracts the date from the result.
+
+      iex> to_date_in_timezone(~N[2024-03-16 01:50:45], "Asia/Kuala_Lumpur")
+      ~D[2024-03-16]
+
+  """
   @spec to_date_in_timezone(NaiveDateTime.t() | DateTime.t() | Date.t(), String.t()) :: Date.t()
   def to_date_in_timezone(dt, timezone) do
     dt |> to_datetime_in_timezone(timezone) |> DateTime.to_date()
   end
 
   @doc """
-  Represents a point in time in a different timezone.
-  Naive datetimes are assumed to be in GMT timezone.
+  Represents a timestamp in a different timezone.
+  Naive datetimes are assumed to be in Etc/UTC timezone.
+  Dates are assumed to mean a Etc/UTC midnight.
 
       iex> to_datetime_in_timezone(~N[2024-03-16 01:50:45], "Asia/Kuala_Lumpur")
       #DateTime<2024-03-16 09:50:45+08:00 +08 Asia/Kuala_Lumpur>
@@ -101,6 +109,9 @@ defmodule Plausible.Timezones do
 
       iex> to_datetime_in_timezone(~N[2024-03-16 01:50:45], "GMT+8")
       #DateTime<2024-03-16 09:50:45+08:00 +08 GMT+8>
+
+      iex> to_datetime_in_timezone(~D[2018-10-28], "Europe/Copenhagen")
+      #DateTime<2018-10-28 02:00:00+02:00 CEST Europe/Copenhagen>
 
   """
   @spec to_datetime_in_timezone(NaiveDateTime.t() | DateTime.t() | Date.t(), String.t()) ::
