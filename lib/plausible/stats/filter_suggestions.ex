@@ -236,6 +236,7 @@ defmodule Plausible.Stats.FilterSuggestions do
             select: e.hostname,
             where: fragment("? ilike ?", e.hostname, ^filter_query)
           )
+          |> IO.inspect(label: :q)
 
         :entry_page ->
           from(e in q,

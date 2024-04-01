@@ -1,6 +1,5 @@
 export const FILTER_GROUPS = {
   'page': ['page', 'entry_page', 'exit_page'],
-  'hostname': ['hostname'],
   'source': ['source', 'referrer'],
   'location': ['country', 'region', 'city'],
   'screen': ['screen'],
@@ -8,7 +7,8 @@ export const FILTER_GROUPS = {
   'os': ['os', 'os_version'],
   'utm': ['utm_medium', 'utm_source', 'utm_campaign', 'utm_term', 'utm_content'],
   'goal': ['goal'],
-  'props': ['prop_key', 'prop_value']
+  'props': ['prop_key', 'prop_value'],
+  'hostname': ['hostname'],
 }
 
 export const NO_CONTAINS_OPERATOR = new Set(['goal', 'screen'].concat(FILTER_GROUPS['location']))

@@ -919,6 +919,81 @@ defmodule PlausibleWeb.Api.StatsController.PagesTest do
              ]
     end
 
+    test "calculates bounce rate and time on page for pages when filtered by hostname", %{
+      conn: conn,
+      site: site
+    } do
+      populate_stats(site, [
+        build(:pageview,
+          pathname: "/about",
+          hostname: "blog.example.com",
+          user_id: @user_id + 1,
+          timestamp: ~N[2021-01-01 00:01:00]
+        ),
+        build(:pageview,
+          pathname: "/about",
+          hostname: "example.com",
+          user_id: @user_id,
+          timestamp: ~N[2021-01-01 00:01:00]
+        ),
+        build(:pageview,
+          pathname: "/about",
+          hostname: "blog.example.com",
+          user_id: @user_id,
+          timestamp: ~N[2021-01-01 00:10:00]
+        ),
+        build(:pageview,
+          pathname: "/about",
+          hostname: "blog.example.com",
+          user_id: @user_id,
+          timestamp: ~N[2021-01-01 00:15:00]
+        ),
+        build(:pageview,
+          pathname: "/exit-blog",
+          hostname: "blog.example.com",
+          timestamp: ~N[2021-01-01 00:20:00],
+          user_id: @user_id
+        ),
+        build(:pageview,
+          pathname: "/about",
+          hostname: "example.com",
+          timestamp: ~N[2021-01-01 00:20:00],
+          user_id: @user_id
+        ),
+        build(:pageview,
+          pathname: "/exit",
+          hostname: "example.com",
+          timestamp: ~N[2021-01-01 00:25:00],
+          user_id: @user_id
+        )
+      ])
+
+      filters = Jason.encode!(%{"hostname" => "blog.example.com"})
+
+      conn =
+        get(
+          conn,
+          "/api/stats/#{site.domain}/pages?period=day&date=2021-01-01&detailed=true&filters=#{filters}"
+        )
+
+      assert json_response(conn, 200) == [
+               %{
+                 "bounce_rate" => 50,
+                 "name" => "/about",
+                 "pageviews" => 3,
+                 "time_on_page" => 600.0,
+                 "visitors" => 2
+               },
+               %{
+                 "bounce_rate" => nil,
+                 "name" => "/exit-blog",
+                 "pageviews" => 1,
+                 "time_on_page" => nil,
+                 "visitors" => 1
+               }
+             ]
+    end
+
     test "doesn't calculate time on page with only single page visits", %{conn: conn, site: site} do
       populate_stats(site, [
         build(:pageview, pathname: "/", user_id: @user_id, timestamp: ~N[2021-01-01 00:00:00]),
@@ -1258,6 +1333,68 @@ defmodule PlausibleWeb.Api.StatsController.PagesTest do
              ]
     end
 
+    test "returns top entry pages by visitors filtered by hostname", %{conn: conn, site: site} do
+      populate_stats(site, [
+        build(:pageview,
+          pathname: "/page1",
+          hostname: "en.example.com",
+          timestamp: ~N[2021-01-01 00:00:00]
+        ),
+        build(:pageview,
+          pathname: "/page1",
+          hostname: "es.example.com",
+          timestamp: ~N[2021-01-01 00:00:00]
+        ),
+        build(:pageview,
+          pathname: "/page2",
+          hostname: "en.example.com",
+          user_id: @user_id,
+          timestamp: ~N[2021-01-01 00:00:00]
+        ),
+        build(:pageview,
+          pathname: "/page2",
+          hostname: "es.example.com",
+          user_id: @user_id,
+          timestamp: ~N[2021-01-01 00:15:00]
+        ),
+        build(:pageview,
+          pathname: "/exit",
+          hostname: "es.example.com",
+          user_id: @user_id,
+          timestamp: ~N[2021-01-01 00:16:00]
+        ),
+        build(:pageview,
+          pathname: "/page2",
+          hostname: "es.example.com",
+          user_id: @user_id,
+          timestamp: ~N[2021-01-01 23:15:00]
+        )
+      ])
+
+      filters = Jason.encode!(%{"hostname" => "es.example.com"})
+
+      conn =
+        get(
+          conn,
+          "/api/stats/#{site.domain}/entry-pages?period=day&date=2021-01-01&filters=#{filters}"
+        )
+
+      assert json_response(conn, 200) == [
+               %{
+                 "visitors" => 1,
+                 "visits" => 1,
+                 "name" => "/page1",
+                 "visit_duration" => 0
+               },
+               %{
+                 "visitors" => 1,
+                 "visits" => 2,
+                 "name" => "/page2",
+                 "visit_duration" => 480
+               }
+             ]
+    end
+
     test "bugfix: pagination on /pages filtered by goal", %{conn: conn, site: site} do
       populate_stats(
         site,
@@ -1406,6 +1543,53 @@ defmodule PlausibleWeb.Api.StatsController.PagesTest do
                %{"name" => "/page1", "visitors" => 2, "visits" => 2, "exit_rate" => 66},
                %{"name" => "/page2", "visitors" => 1, "visits" => 1, "exit_rate" => 100}
              ]
+    end
+
+    test "returns top exit pages by visitors filtered by hostname", %{conn: conn, site: site} do
+      populate_stats(site, [
+        build(:pageview,
+          pathname: "/page1",
+          hostname: "en.example.com",
+          timestamp: ~N[2021-01-01 00:00:00]
+        ),
+        build(:pageview,
+          pathname: "/page1",
+          hostname: "es.example.com",
+          timestamp: ~N[2021-01-01 00:00:00]
+        ),
+        build(:pageview,
+          pathname: "/page1",
+          hostname: "en.example.com",
+          user_id: @user_id,
+          timestamp: ~N[2021-01-01 00:00:00]
+        ),
+        build(:pageview,
+          pathname: "/page2",
+          hostname: "es.example.com",
+          user_id: @user_id,
+          timestamp: ~N[2021-01-01 00:15:00]
+        ),
+        build(:pageview,
+          pathname: "/exit",
+          hostname: "es.example.com",
+          user_id: @user_id,
+          timestamp: ~N[2021-01-01 00:16:00]
+        )
+      ])
+
+      filters = Jason.encode!(%{hostname: "es.example.com"})
+
+      conn =
+        get(
+          conn,
+          "/api/stats/#{site.domain}/exit-pages?period=day&date=2021-01-01&filters=#{filters}"
+        )
+
+      assert json_response(conn, 200) ==
+               [
+                 %{"name" => "/exit", "visitors" => 1, "visits" => 1},
+                 %{"name" => "/page1", "visitors" => 1, "visits" => 1}
+               ]
     end
 
     test "returns top exit pages filtered by custom pageview props", %{conn: conn, site: site} do

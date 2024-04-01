@@ -663,7 +663,6 @@ defmodule PlausibleWeb.Api.StatsController.TopStatsTest do
 
       res =
         json_response(conn, 200)
-        # |> IO.inspect(label: :huh)
 
       assert %{"name" => "Unique visitors", "value" => 2} in res["top_stats"]
       assert %{"name" => "Total visits", "value" => 2} in res["top_stats"]
