@@ -69,7 +69,7 @@ defmodule Plausible.Stats.DashboardFilterParserTest do
       |> assert_parsed(%{"event:props:cta" => {:is, "Top"}})
 
       %{"hostname" => "dummy.site"}
-      |> assert_parsed(%{"visit:hostname" => {:is, "dummy.site"}})
+      |> assert_parsed(%{"event:hostname" => {:is, "dummy.site"}})
     end
   end
 
