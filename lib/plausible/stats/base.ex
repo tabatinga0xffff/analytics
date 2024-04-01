@@ -50,6 +50,8 @@ defmodule Plausible.Stats.Base do
 
     q = from(e in q, where: ^dynamic_filter_condition(query, "event:page", :pathname))
 
+    q = from(e in q, where: ^dynamic_filter_condition(query, "event:hostname", :hostname))
+
     q =
       case query.filters["event:name"] do
         {:is, name} ->

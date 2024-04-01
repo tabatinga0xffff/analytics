@@ -25,6 +25,37 @@ defmodule PlausibleWeb.Api.StatsController.PagesTest do
              ]
     end
 
+    test "returns top pages by visitors by hostname", %{conn: conn1, site: site} do
+      populate_stats(site, [
+        build(:pageview, pathname: "/", hostname: "a.example.com"),
+        build(:pageview, pathname: "/", hostname: "b.example.com"),
+        build(:pageview, pathname: "/", hostname: "d.example.com"),
+        build(:pageview, pathname: "/landing", hostname: "x.example.com", user_id: 123),
+        build(:pageview, pathname: "/register", hostname: "d.example.com", user_id: 123),
+        build(:pageview, pathname: "/register", hostname: "d.example.com", user_id: 123),
+        build(:pageview, pathname: "/register", hostname: "d.example.com"),
+        build(:pageview, pathname: "/contact", hostname: "e.example.com")
+      ])
+
+      filters = Jason.encode!(%{"hostname" => "*.example.com"})
+      conn = get(conn1, "/api/stats/#{site.domain}/pages?period=day&filters=#{filters}")
+
+      assert json_response(conn, 200) == [
+               %{"visitors" => 3, "name" => "/"},
+               %{"visitors" => 2, "name" => "/register"},
+               %{"visitors" => 1, "name" => "/contact"},
+               %{"visitors" => 1, "name" => "/landing"}
+             ]
+
+      filters = Jason.encode!(%{"hostname" => "d.example.com"})
+      conn = get(conn1, "/api/stats/#{site.domain}/pages?period=day&filters=#{filters}")
+
+      assert json_response(conn, 200) == [
+               %{"visitors" => 2, "name" => "/register"},
+               %{"visitors" => 1, "name" => "/"}
+             ]
+    end
+
     test "returns top pages with :is filter on custom pageview props", %{conn: conn, site: site} do
       populate_stats(site, [
         build(:pageview,

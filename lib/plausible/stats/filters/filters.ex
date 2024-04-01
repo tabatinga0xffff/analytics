@@ -23,14 +23,15 @@ defmodule Plausible.Stats.Filters do
     :region,
     :city,
     :entry_page,
-    :exit_page,
-    :hostname
+    :exit_page
   ]
   def visit_props(), do: @visit_props |> Enum.map(&to_string/1)
 
-  @event_props [:name, :page, :goal]
+  @event_props [:name, :page, :goal, :hostname]
 
   def event_props(), do: @event_props |> Enum.map(&to_string/1)
+
+  # def visit_props_exclusive(), do: (@visit_props -- @event_props) |> Enum.map(&to_string/1)
 
   @doc """
   Parses different filter formats.
