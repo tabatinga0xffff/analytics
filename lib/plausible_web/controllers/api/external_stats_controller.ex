@@ -56,13 +56,23 @@ defmodule PlausibleWeb.Api.ExternalStatsController do
          :ok <- validate_filters(site, query.filters),
          {:ok, metrics} <- parse_and_validate_metrics(params, property, query),
          {:ok, limit} <- validate_or_default_limit(params),
-         :ok <- ensure_custom_props_access(site, query, property) do
+         :ok <- ensure_custom_props_access(site, query, property),
+         query <- update_hostname_filter(query, property) do
       page = String.to_integer(Map.get(params, "page", "1"))
+
       results = Plausible.Stats.breakdown(site, query, property, metrics, {limit, page})
 
       json(conn, %{results: results})
     else
       err_tuple -> send_json_error_response(conn, err_tuple)
+    end
+  end
+
+  defp update_hostname_filter(query, property) do
+    if query.filters["event:hostname"] && property in ["visit:source"] do
+      Query.put_filter(query, "visit:entry_page_hostname", query.filters["event:hostname"])
+    else
+      query
     end
   end
 

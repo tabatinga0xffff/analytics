@@ -1013,6 +1013,32 @@ defmodule PlausibleWeb.Api.ExternalStatsController.BreakdownTest do
              }
     end
 
+    test "can filter event:hostname with a wildcard", %{
+      conn: conn,
+      site: site
+    } do
+      populate_stats(site, [
+        build(:pageview, hostname: "alice.example.com", pathname: "/a"),
+        build(:pageview, hostname: "anna.example.com", pathname: "/a"),
+        build(:pageview, hostname: "adam.example.com", pathname: "/a"),
+        build(:pageview, hostname: "bob.example.com", pathname: "/b")
+      ])
+
+      conn =
+        get(conn, "/api/v1/stats/breakdown", %{
+          "site_id" => site.domain,
+          "period" => "day",
+          "property" => "event:page",
+          "filters" => "event:hostname==a*.example.com"
+        })
+
+      assert json_response(conn, 200) == %{
+               "results" => [
+                 %{"page" => "/a", "visitors" => 3}
+               ]
+             }
+    end
+
     test "breakdown by custom event property", %{conn: conn, site: site} do
       populate_stats(site, [
         build(:event,
@@ -1442,6 +1468,66 @@ defmodule PlausibleWeb.Api.ExternalStatsController.BreakdownTest do
                  ]
                }
       end
+    end
+
+    test "top sources for a custom goal and filtered by hostname", %{conn: conn, site: site} do
+      populate_stats(site, [
+        build(:pageview,
+          hostname: "blog.example.com",
+          referrer_source: "Facebook",
+          user_id: @user_id
+        ),
+        build(:pageview,
+          hostname: "app.example.com",
+          pathname: "/register",
+          user_id: @user_id
+        ),
+        build(:event,
+          name: "Signup",
+          hostname: "app.example.com",
+          pathname: "/register",
+          user_id: @user_id
+        )
+      ])
+
+      conn =
+        get(conn, "/api/v1/stats/breakdown", %{
+          "site_id" => site.domain,
+          "period" => "day",
+          "property" => "visit:source",
+          "filters" => "event:hostname==app.example.com"
+        })
+
+      assert json_response(conn, 200) == %{"results" => []}
+    end
+
+    test "top sources for a custom goal and filtered by hostname (2)", %{conn: conn, site: site} do
+      populate_stats(site, [
+        build(:pageview,
+          hostname: "app.example.com",
+          referrer_source: "Facebook",
+          pathname: "/register",
+          user_id: @user_id
+        ),
+        build(:event,
+          name: "Signup",
+          hostname: "app.example.com",
+          pathname: "/register",
+          user_id: @user_id
+        )
+      ])
+
+      conn =
+        get(conn, "/api/v1/stats/breakdown", %{
+          "site_id" => site.domain,
+          "period" => "day",
+          "property" => "visit:source",
+          "filters" => "event:hostname==app.example.com"
+        })
+
+      assert json_response(conn, 200) == %{
+               "results" => [%{"source" => "Facebook", "visitors" => 1}]
+             }
     end
 
     test "event:page filter is interpreted as entry_page filter only for bounce_rate", %{

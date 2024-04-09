@@ -17,7 +17,9 @@ defmodule Plausible.Stats.Props do
     "visit:os",
     "visit:os_version",
     "visit:browser",
-    "visit:browser_version"
+    "visit:browser_version",
+    "visit:entry_page_hostname",
+    "visit:exit_page_hostname"
   ]
 
   def valid_prop?(prop) when prop in @event_props, do: true
