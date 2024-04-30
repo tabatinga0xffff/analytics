@@ -697,6 +697,9 @@ config :plausible, Plausible.PromEx,
   grafana: :disabled,
   metrics_server: :disabled
 
+config :plausible, HeadlessBrowser,
+  browserless_token: get_var_from_path_or_env("BROWSERLESS_TOKEN", "dummy_token")
+
 if not is_selfhost do
   site_default_ingest_threshold =
     case System.get_env("SITE_DEFAULT_INGEST_THRESHOLD") do
