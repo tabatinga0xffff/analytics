@@ -80,7 +80,8 @@ defmodule PlausibleWeb.StatsController do
       !stats_start_date && can_see_stats? ->
         render(conn, "waiting_first_pageview.html",
           site: site,
-          dogfood_page_path: dogfood_page_path
+          dogfood_page_path: dogfood_page_path,
+          connect_live_socket: true,
         )
 
       Sites.locked?(site) ->
