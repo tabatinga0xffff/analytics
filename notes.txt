@@ -1,5 +1,0 @@
-- Browserless
-    - timeouts
-    - DNS resolution failure
-    - long running pages
-    
