@@ -2,14 +2,15 @@ defmodule PlausibleWeb.Live.SnippetVerification do
   use PlausibleWeb, :live_view
   use Phoenix.HTML
 
+  alias Plausible.Site.Verification.Checks
+
   def mount(
         _params,
         %{"domain" => domain},
         socket
       ) do
-
     if connected?(socket) do
-      Process.send_after(self(), :rotate_message, 1500)
+      Process.send_after(self(), :start, 500)
     end
 
     socket = assign(socket, message: "Verifying your installation...", domain: domain)
@@ -29,18 +30,12 @@ defmodule PlausibleWeb.Live.SnippetVerification do
     """
   end
 
-  def handle_info(:rotate_message, socket) do
-    Process.send_after(self(), :rotate_message, Enum.random(400..1500))
-
-    {:noreply, assign(socket, message: rotate_message(socket.assigns))}
+  def handle_info(:start, socket) do
+    Checks.run("https://#{socket.assigns.domain}", socket.assigns.domain)
+    {:noreply, socket}
   end
 
-  def rotate_message(assigns) do
-    Enum.random([
-      "Connecting to #{assigns.domain}...",
-      "Checking host availability...",
-      "Looking for the snippet...",
-      "Visiting the website..."
-    ])
+  def handle_info({:verification_progress, check, status}, socket) do
+    {:noreply, assign(socket, message: "#{check}: #{status}")}
   end
 end

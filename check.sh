@@ -25,4 +25,4 @@ type: "application/json",
 EOF
 }
 
-curl -X POST http://0.0.0.0:3000/function?token=dummy_token -H "content-type: application/javascript" --data "$(code_data $1)"
+curl -vvv -X POST http://0.0.0.0:3000/function?token=dummy_token -H "content-type: application/javascript" --data "$(code_data $1)"
