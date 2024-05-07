@@ -4,13 +4,13 @@ export default async function({ page }) {
 		"plausible.io Snippet Verification Agent - if abused contact support@plausible.io",
 	);
 
-	await page.goto("<%= url %>");
+	const resp = await page.goto("<%= url %>");
 	await page.waitForNetworkIdle({ idleTime: 1000 });
 	const url = await page.title();
 	const plausibleInstalled = await page.evaluate(() => typeof (window.plausible) === "function");
 	return {
 		data: {
-			url, plausibleInstalled
+			url, plausibleInstalled, resp
 		},
 		// Make sure to match the appropriate content here
 		type: "application/json",

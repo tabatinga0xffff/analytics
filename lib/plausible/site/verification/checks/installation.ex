@@ -3,8 +3,8 @@ defmodule Plausible.Site.Verification.Checks.Installation do
   use Plausible.Site.Verification.State
 
   @verification_script_filename "verification/verify_plausible_installed.js.eex"
-  @verification_script_path :code.priv_dir(:plausible)
-                            |> Path.join(@verification_script_filename)
+  @verification_script_path Path.join(:code.priv_dir(:plausible), @verification_script_filename)
+  # TODO: external resource
 
   EEx.function_from_file(
     :def,
@@ -23,33 +23,17 @@ defmodule Plausible.Site.Verification.Checks.Installation do
            body: verify_plausible_installed_js_code(url),
            retry: :transient,
            max_retries: 3
-         ) do
-      {:ok, %{status: 200, body: %{"data" => %{"plausibleInstalled" => true}}}} ->
-        pass(state, __MODULE__, "Your Plausible snippet looks good!", true)
+         )
+         |> IO.inspect(label: :resp_service) do
+      {:ok, %{status: 200, body: %{"data" => %{"plausibleInstalled" => installed?}}}}
+      when is_boolean(installed?) ->
+        put_diagnostics(state, plausible_installed?: installed?)
 
-      {:ok, %{status: 200, body: %{"data" => %{"plausibleInstalled" => false}}}} ->
-        fail(
-          state,
-          __MODULE__,
-          "We could not detect your Plausible snippet installed correctly.",
-          false
-        )
+      {:ok, %{status: status}} ->
+        put_diagnostics(state, plausible_installed?: false, service_error: status)
 
-      {:ok, %{status: status} = response} ->
-        fail(
-          state,
-          __MODULE__,
-          "We could not visit your website to verify the snippet installation. Our agent encountered #{status} code.",
-          response
-        )
-
-      {:error, _} = e ->
-        fail(
-          state,
-          __MODULE__,
-          "There has been an error trying to retrieve the snippet from your website.",
-          e
-        )
+      {:error, %{reason: reason}} ->
+        put_diagnostics(state, plausible_isntalled?: false, service_error: reason)
     end
   end
 

@@ -10,13 +10,9 @@ defmodule Plausible.Site.Verification.Checks.FetchBody do
       {:ok, %{body: body} = response} when is_binary(body) ->
         extract_document(state, response)
 
-      {:error, _} = e ->
-        fail(state, __MODULE__, "We could not reach the website.", e)
+      {:error, %{reason: e}} ->
+        put_diagnostics(state, could_not_fetch_body: e)
     end
-  end
-
-  def perform(%State{url: url} = state) do
-    fail(state, __MODULE__, "The URL is invalid: #{inspect(url)}", url)
   end
 
   defp extract_document(state, response) do
@@ -24,25 +20,15 @@ defmodule Plausible.Site.Verification.Checks.FetchBody do
 
     case Floki.parse_document(response.body) do
       {:ok, document} ->
-        pass(state, __MODULE__, "Document parsed successfully", document)
+        assign(state, document: document)
 
-      {:error, _} = e ->
-        fail(
-          state,
-          __MODULE__,
-          "We could not parse HTML of the website. Make sure all tags are properly closed.",
-          e
-        )
+      {:error, reason} ->
+        put_diagnostics(state, could_not_parse_document: reason)
     end
   end
 
   defp check_content_type(state, response) do
     content_type = List.first(response.headers["content-type"])
-
-    if is_binary(content_type) and content_type =~ "text/html" do
-      state
-    else
-      warn(state, __MODULE__, "The content type of the website is not text/html.")
-    end
+    put_diagnostics(state, document_content_type: content_type)
   end
 end

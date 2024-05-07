@@ -10,18 +10,32 @@ defmodule Plausible.Site.Verification.Checks do
     Checks.Installation
   ]
 
-  def run(url, data_domain, report_to \\ self(), checks \\ @checks) do
-    Task.start_link(fn ->
+  def run(url, data_domain, opts \\ []) do
+    checks = Keyword.get(opts, :checks, @checks)
+    report_to = Keyword.get(opts, :report_to, self())
+    async? = Keyword.get(opts, :async?, true)
+    slowdown = Keyword.get(opts, :slowdown, 100)
+
+    if async? do
+      Task.start_link(fn -> do_run(url, data_domain, checks, report_to, slowdown) end)
+    else
+      do_run(url, data_domain, checks, report_to, slowdown)
+    end
+  end
+
+  defp do_run(url, data_domain, checks, report_to, slowdown) do
+    state =
       Enum.reduce(
         checks,
         %State{url: url, data_domain: data_domain, report_to: report_to},
         fn check, state ->
-          State.notify(state, check.friendly_name(), "in progress")
-          Logger.info("Running #{check} against #{url} (data-domain=#{data_domain})")
-
-          check.perform(state)
+          state
+          |> State.notify_start(check, slowdown)
+          |> check.perform()
+          |> State.notify_finish(check, slowdown)
         end
       )
-    end)
+
+    State.notify_verification_end(state, slowdown)
   end
 end
