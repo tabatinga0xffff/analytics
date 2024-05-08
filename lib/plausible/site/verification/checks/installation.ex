@@ -18,13 +18,18 @@ defmodule Plausible.Site.Verification.Checks.Installation do
   def friendly_name, do: "Verifying Plausible snippet installation"
 
   def perform(%State{url: url} = state) do
-    case Req.post(verification_endpoint(),
-           headers: %{content_type: "application/javascript"},
-           body: verify_plausible_installed_js_code(url),
-           retry: :transient,
-           max_retries: 3
-         )
-         |> IO.inspect(label: :resp_service) do
+    opts = [
+      headers: %{content_type: "application/javascript"},
+      body: verify_plausible_installed_js_code(url),
+      retry: :transient,
+      retry_log_level: :warning,
+      max_retries: 3
+    ]
+
+    extra_opts = Application.get_env(:plausible, __MODULE__)[:req_opts] || []
+    opts = Keyword.merge(opts, extra_opts)
+
+    case Req.post(verification_endpoint(), opts) do
       {:ok, %{status: 200, body: %{"data" => %{"plausibleInstalled" => installed?}}}}
       when is_boolean(installed?) ->
         put_diagnostics(state, plausible_installed?: installed?)
@@ -33,7 +38,7 @@ defmodule Plausible.Site.Verification.Checks.Installation do
         put_diagnostics(state, plausible_installed?: false, service_error: status)
 
       {:error, %{reason: reason}} ->
-        put_diagnostics(state, plausible_isntalled?: false, service_error: reason)
+        put_diagnostics(state, plausible_installed?: false, service_error: reason)
     end
   end
 

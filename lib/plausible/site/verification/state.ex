@@ -3,7 +3,7 @@ defmodule Plausible.Site.Verification.State do
             data_domain: nil,
             report_to: nil,
             assigns: %{},
-            diagnostics: []
+            diagnostics: %Plausible.Site.Verification.Diagnostics{}
 
   defmacro __using__(_) do
     quote do
@@ -18,7 +18,7 @@ defmodule Plausible.Site.Verification.State do
   end
 
   def put_diagnostics(%__MODULE__{} = state, diagnostics) when is_list(diagnostics) do
-    %{state | diagnostics: state.diagnostics ++ diagnostics}
+    %{state | diagnostics: struct!(state.diagnostics, diagnostics)}
   end
 
   def put_diagnostics(%__MODULE__{} = state, diagnostics) do

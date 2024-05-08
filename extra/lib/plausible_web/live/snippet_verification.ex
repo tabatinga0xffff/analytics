@@ -6,13 +6,15 @@ defmodule PlausibleWeb.Live.SnippetVerification do
   alias Phoenix.LiveView.JS
   import PlausibleWeb.Components.Generic
 
+  @slowdown_for_frequent_checking :timer.seconds(1)
+
   def mount(
         _params,
         %{"domain" => domain},
         socket
       ) do
     if connected?(socket) do
-      Process.send_after(self(), :start, 500)
+        Process.send_after(self(), :start, 500)
     end
 
     socket =
@@ -34,8 +36,8 @@ defmodule PlausibleWeb.Live.SnippetVerification do
       data-on-success={JS.navigate("/#{URI.encode_www_form(@domain)}?skip_to_dashboard=true")}
     >
       <div class="flex justify-center w-full h-16">
-        <div :if={not @finished?} class="block pulsating-circle"></div>
-        <div :if={@finished? and not @success?} class="block">
+        <div :if={!@finished?} class="block pulsating-circle"></div>
+        <div :if={@finished? && !@success?} class="block">
           <.shuttle width={50} height={50} />
         </div>
       </div>
@@ -50,48 +52,7 @@ defmodule PlausibleWeb.Live.SnippetVerification do
 
       <div :if={@finished? && !@success?} class="">
         <div class="text-xs mt-4">
-          <ul class="mt-2 leading-6">
-            <li :if={@diagnostics[:could_not_fetch_body]}>
-              <Heroicons.exclamation_triangle class="text-red-500 w-4 h-4 inline-block mr-1" />
-              <span class="text-red-500">
-                Encountered <code><%= @diagnostics[:could_not_fetch_body] %></code> error
-              </span>
-            </li>
-            <li :if={!@diagnostics[:could_not_fetch_body]}>
-              <Heroicons.check_circle class="text-green-600 w-4 h-4 inline-block mr-1" />
-              <span class="text-green-600">
-                Your website responded to our request
-              </span>
-            </li>
-            <li :if={
-              String.starts_with?(to_string(@diagnostics[:document_content_type]), "text/html")
-            }>
-              <Heroicons.check_circle class="text-green-600 w-4 h-4 inline-block mr-1" />
-              <span class="text-green-600">
-                Your website responded with HTML
-              </span>
-            </li>
-            <li :if={
-              not String.starts_with?(to_string(@diagnostics[:document_content_type]), "text/html")
-            }>
-              <Heroicons.exclamation_triangle class="text-red-500 w-4 h-4 inline-block mr-1" />
-              <span class="text-red-500">
-                Your website did not respond with HTML
-              </span>
-            </li>
-            <li :if={@diagnostics[:snippets_found] == 1}>
-              <Heroicons.check_circle class="text-green-600 w-4 h-4 inline-block mr-1" />
-              <span class="text-green-600">
-                We found the snippet on your website
-              </span>
-            </li>
-            <li :if={@diagnostics[:snippets_found] == 0}>
-              <Heroicons.exclamation_triangle class="text-red-500 w-4 h-4 inline-block mr-1" />
-              <span class="text-red-500">
-                We could not locate the snippet on your website
-              </span>
-            </li>
-          </ul>
+        <.diagnostics_feedback diagnostics={@diagnostics} />
         </div>
 
         <.button_link href="#" class="text-xs mt-4" phx-click="retry">
@@ -113,12 +74,33 @@ defmodule PlausibleWeb.Live.SnippetVerification do
     """
   end
 
-    def handle_event("retry", _, socket) do
-      Process.send_after(self(), :start, 500)
-      {:noreply, assign(socket, message: "Verifying your installation...", finished?: false, success?: false)}
-    end
+  def diagnostics_feedback(assigns) do
+    {:error, error} = Plausible.Site.Verification.Diagnostics.diagnostics_to_user_feedback(assigns.diagnostics)
+    assigns = assign(assigns, :error, error)
+
+    ~H"""
+    <ul class="mt-2 leading-6">
+    <li>
+      <Heroicons.exclamation_triangle class="text-red-500 w-4 h-4 inline-block mr-1" />
+      <span class="text-red-500">
+    <%= @error %>
+      </span>
+      </li>
+                          </ul>
+    """
+  end
+
+  def handle_event("retry", _, socket) do
+    Process.send_after(self(), :start, 500)
+    {:noreply,
+     assign(socket, message: "Verifying your installation...", finished?: false, success?: false)}
+  end
 
   def handle_info(:start, socket) do
+    case Plausible.RateLimit.check_rate("site_verification_#{socket.assigns.domain}", :timer.minutes(60), 3) do
+      {:allow, _} -> :ok
+      {:deny, _} -> :timer.sleep(:timer.seconds(@slowdown_for_frequent_checking))
+    end
     Checks.run("https://#{socket.assigns.domain}", socket.assigns.domain)
     {:noreply, socket}
   end
@@ -132,13 +114,13 @@ defmodule PlausibleWeb.Live.SnippetVerification do
   end
 
   def handle_info({:verification_end, state}, socket) do
-    success? = state.diagnostics[:plausible_installed?]
+    success? = !state.diagnostics.service_error && state.diagnostics.plausible_installed?
 
     message =
       if success? do
         "Plausible is installed on your website 🥳"
       else
-        "We could not verify your Plausible installation"
+        "We could not verify your Plausible installation at https://#{state.data_domain}"
       end
 
     socket =

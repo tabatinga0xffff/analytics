@@ -4,7 +4,10 @@ defmodule Plausible.Site.Verification.Checks.FetchBody do
   def friendly_name, do: "Fetching website contents"
 
   def perform(%State{url: "https://" <> _ = url} = state) do
-    req = Req.new(base_url: url, max_redirects: 1)
+    fetch_body_opts = Application.get_env(:plausible, __MODULE__)[:req_opts] || []
+
+    opts = Keyword.merge([base_url: url, max_redirects: 1], fetch_body_opts)
+    req = Req.new(opts)
 
     case Req.get(req) do
       {:ok, %{body: body} = response} when is_binary(body) ->
