@@ -65,6 +65,6 @@ defmodule Plausible.Stats.GoalSuggestions do
       limit: 25
     )
     |> ClickhouseRepo.all()
-    |> Enum.map(&{&1, &1})
+    |> Enum.map(&%{label: &1, value: &1})
   end
 end

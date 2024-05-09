@@ -25,10 +25,10 @@ defmodule Plausible.Stats.GoalSuggestionsTest do
       )
 
       assert GoalSuggestions.suggest_event_names(site, "") == [
-               {"Outbound Link: Click", "Outbound Link: Click"},
-               {"Signup Newsletter", "Signup Newsletter"},
-               {"Signup", "Signup"},
-               {"Purchase", "Purchase"}
+               %{label: "Outbound Link: Click", value: "Outbound Link: Click"},
+               %{label: "Signup Newsletter", value: "Signup Newsletter"},
+               %{label: "Signup", value: "Signup"},
+               %{label: "Purchase", value: "Purchase"}
              ]
     end
 
@@ -48,12 +48,12 @@ defmodule Plausible.Stats.GoalSuggestionsTest do
         build(:imported_custom_events, name: "Not Matching", visitors: 3)
       ])
 
-      assert GoalSuggestions.suggest_event_names(site, "Sign") == [
-               {"GA Signup", "GA Signup"},
-               {"Some Signup", "Some Signup"},
-               {"A Sign", "A Sign"},
-               {"sign", "sign"}
-             ]
+      assert [
+               %{value: "GA Signup"},
+               %{value: "Some Signup"},
+               %{value: "A Sign"},
+               %{value: "sign"}
+             ] = GoalSuggestions.suggest_event_names(site, "Sign")
     end
 
     test "ignores the 'pageview' event name", %{site: site} do
@@ -63,7 +63,7 @@ defmodule Plausible.Stats.GoalSuggestionsTest do
       ])
 
       assert GoalSuggestions.suggest_event_names(site, "") == [
-               {"Signup", "Signup"}
+               %{label: "Signup", value: "Signup"}
              ]
     end
 
