@@ -29,7 +29,7 @@ defmodule Plausible.Site.Verification.Checks.Installation do
     extra_opts = Application.get_env(:plausible, __MODULE__)[:req_opts] || []
     opts = Keyword.merge(opts, extra_opts)
 
-    case Req.post(verification_endpoint(), opts) do
+    case Req.post(verification_endpoint(), opts) |> IO.inspect(label: :result) do
       {:ok, %{status: 200, body: %{"data" => %{"plausibleInstalled" => installed?}}}}
       when is_boolean(installed?) ->
         put_diagnostics(state, plausible_installed?: installed?)

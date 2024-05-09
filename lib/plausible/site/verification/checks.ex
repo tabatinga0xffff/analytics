@@ -35,14 +35,13 @@ defmodule Plausible.Site.Verification.Checks do
             state
             |> State.notify_start(check, slowdown)
             |> check.perform()
-            |> State.notify_finish(check, slowdown)
           end
         )
 
       State.notify_verification_end(state, slowdown)
     catch
       e ->
-                Logger.error("Error running verification checks: #{inspect(e)}")
+        Logger.error("Error running verification checks: #{inspect(e)}")
         State.notify_verification_end(init_state, slowdown)
     end
   end
