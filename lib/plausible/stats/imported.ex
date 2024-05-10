@@ -28,7 +28,8 @@ defmodule Plausible.Stats.Imported do
     "visit:os_version" => "imported_operating_systems",
     "event:page" => "imported_pages",
     "event:name" => "imported_custom_events",
-    "event:props:url" => "imported_custom_events"
+    "event:props:url" => "imported_custom_events",
+    "event:props:path" => "imported_custom_events"
   }
 
   @imported_properties Map.keys(@property_to_table_mappings)
@@ -48,7 +49,14 @@ defmodule Plausible.Stats.Imported do
          filters: %{"event:goal" => {:is, {:event, event}}},
          property: "event:props:url"
        })
-       when event in ["Outbound Link: Click", "File Download"] do
+       when event in ["Outbound Link: Click", "Cloaked Link: Click", "File Download"] do
+    true
+  end
+
+  defp supports_single_filter?(%Query{
+         filters: %{"event:goal" => {:is, {:event, "404"}}},
+         property: "event:props:path"
+       }) do
     true
   end
 
@@ -124,7 +132,7 @@ defmodule Plausible.Stats.Imported do
 
     join_on =
       case dim do
-        :url ->
+        _ when dim in [:url, :path] ->
           dynamic([s, i], s.breakdown_prop_value == i.breakdown_prop_value)
 
         :os_version ->
@@ -458,6 +466,12 @@ defmodule Plausible.Stats.Imported do
     |> select_merge([i], %{breakdown_prop_value: i.link_url})
   end
 
+  defp group_imported_by(q, :path) do
+    q
+    |> group_by([i], i.path)
+    |> select_merge([i], %{breakdown_prop_value: i.path})
+  end
+
   defp select_joined_dimension(q, :city) do
     select_merge(q, [s, i], %{
       city: fragment("greatest(?,?)", i.city, s.city)
@@ -479,7 +493,7 @@ defmodule Plausible.Stats.Imported do
     })
   end
 
-  defp select_joined_dimension(q, :url) do
+  defp select_joined_dimension(q, dim) when dim in [:url, :path] do
     select_merge(q, [s, i], %{
       breakdown_prop_value:
         fragment(
