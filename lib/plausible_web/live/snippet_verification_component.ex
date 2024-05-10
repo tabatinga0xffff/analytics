@@ -7,7 +7,7 @@ defmodule PlausibleWeb.SnippetVerificationComponent do
     socket =
       socket
       |> assign_new(:domain, fn -> assigns.domain end)
-      |> assign_new(:embedded, fn -> assigns.embedded end)
+      |> assign_new(:embedded, fn -> assigns[:embedded] end)
       |> assign(
         message: assigns[:message] || "Verifying your installation",
         finished?: assigns[:finished?] || false,
@@ -26,8 +26,13 @@ defmodule PlausibleWeb.SnippetVerificationComponent do
     ]}>
       <h2 class="text-xl font-bold dark:text-gray-100">Verifying your installation</h2>
       <h2 class="text-xl font-bold dark:text-gray-100">on <%= @domain %></h2>
-      <div :if={!@finished? && !@success?} class="flex justify-center w-full h-12 mt-8">
-        <div class="block pulsating-circle"></div>
+      <div :if={!@finished? || @success?} class="flex justify-center w-full h-12 mt-8">
+        <div class={["block pulsating-circle", if(@embedded && @finished?, do: "hidden")]}></div>
+        <Heroicons.check_circle
+          :if={@embedded && @finished? && @success?}
+          solid
+          class="w-4 h-4 text-green-500"
+        />
       </div>
 
       <div :if={@finished? && !@success?} class="flex justify-center pt-3 h-14 mb-4">
@@ -40,22 +45,35 @@ defmodule PlausibleWeb.SnippetVerificationComponent do
         <%= @message %>
       </div>
 
-      <div :if={@finished? && !@success? && @diagnostics} class="">
+      <div :if={@finished? && !@success? && @diagnostics}>
         <div class="text-xs mt-4">
           <.diagnostics_feedback diagnostics={@diagnostics} />
         </div>
 
-        <.button_link href="#" class="text-xs mt-2" phx-click="retry">
-          Retry verification
-        </.button_link>
+        <div class="flex justify-center mt-6 text-xs">
+          <.button_link href="#" phx-click="retry">
+            Retry
+          </.button_link>
+
+          <.button_link :if={@finished? && @embedded} href="#" class="ml-4" phx-click="dismiss">
+            Dismiss
+          </.button_link>
+        </div>
       </div>
 
       <div class="mt-auto pb-2 text-gray-600 dark:text-gray-400 text-xs w-full text-center leading-normal">
-        Need to see the snippet again?
-        <.styled_link href={"/#{URI.encode_www_form(@domain)}/snippet"}>
-          Click here
-        </.styled_link>
-        <br /> Skip to the dashboard?
+        <%= if !@embedded do %>
+          Need to see the snippet again?
+          <.styled_link href={"/#{URI.encode_www_form(@domain)}/snippet"}>
+            Click here
+          </.styled_link>
+          <br /> Run verification later and go to Site Settings?
+          <.styled_link href={"/#{URI.encode_www_form(@domain)}/settings/general"}>
+            Click here
+          </.styled_link>
+          <br />
+        <% end %>
+        Skip to the dashboard?
         <.styled_link href={"/#{URI.encode_www_form(@domain)}?skip_to_dashboard=true"}>
           Click here
         </.styled_link>
@@ -80,9 +98,5 @@ defmodule PlausibleWeb.SnippetVerificationComponent do
       </li>
     </ul>
     """
-  end
-
-  def handle_info(:foo, socket) do
-    {:noreply, socket}
   end
 end

@@ -51,8 +51,9 @@ defmodule PlausibleWeb.Live.SnippetVerification do
         x-data
         x-on:click={Modal.JS.open("verification-modal")}
         phx-click="launch-verification"
+        class="mt-4"
       >
-        Verify installation
+        Verify
       </PlausibleWeb.Components.Generic.button>
     </div>
 
@@ -86,6 +87,10 @@ defmodule PlausibleWeb.Live.SnippetVerification do
     )
 
     {:noreply, socket}
+  end
+
+  def handle_event("dismiss", _, %{assigns: %{modal?: true}} = socket) do
+    {:noreply, Modal.close(socket, "verification-modal")}
   end
 
   def handle_info(:start, socket) do
@@ -132,10 +137,15 @@ defmodule PlausibleWeb.Live.SnippetVerification do
     success? = !state.diagnostics.service_error && state.diagnostics.plausible_installed?
 
     message =
-      if success? do
-        "Plausible is installed on your website 🥳 - awaiting your first pageview"
-      else
-        "We could not verify your Plausible installation at https://#{state.data_domain}"
+      cond do
+        success? and socket.assigns.modal? ->
+          "Plausible is installed on your website 🥳"
+
+        success? ->
+          "Plausible is installed on your website 🥳 - awaiting your first pageview"
+
+        true ->
+          "Verification failed for https://#{state.data_domain}"
       end
 
     send_update(PlausibleWeb.SnippetVerificationComponent,
