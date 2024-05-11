@@ -5,13 +5,7 @@ defmodule Plausible.Site.Verification.State do
             assigns: %{},
             diagnostics: %Plausible.Site.Verification.Diagnostics{}
 
-  defmacro __using__(_) do
-    quote do
-      alias Plausible.Site.Verification.Checks
-      alias Plausible.Site.Verification.State
-      import Plausible.Site.Verification.State
-    end
-  end
+  @type t() :: %__MODULE__{}
 
   def assign(%__MODULE__{} = state, [{key, value}]) do
     %{state | assigns: Map.put(state.assigns, key, value)}

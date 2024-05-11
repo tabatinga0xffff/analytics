@@ -1,8 +1,10 @@
 defmodule Plausible.Site.Verification.Checks.Snippet do
-  use Plausible.Site.Verification.State
+  use Plausible.Site.Verification.Check
 
+  @impl true
   def friendly_name, do: "Looking for Plausible snippet"
 
+  @impl true
   def perform(%State{assigns: %{document: document}} = state) do
     result_head = Floki.find(document, "head script[data-domain=\"#{state.data_domain}\"]")
     result_body = Floki.find(document, "body script[data-domain=\"#{state.data_domain}\"]")

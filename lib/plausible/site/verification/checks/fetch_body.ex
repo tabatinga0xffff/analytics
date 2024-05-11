@@ -1,8 +1,10 @@
 defmodule Plausible.Site.Verification.Checks.FetchBody do
-  use Plausible.Site.Verification.State
+  use Plausible.Site.Verification.Check
 
+  @impl true
   def friendly_name, do: "Fetching website contents"
 
+  @impl true
   def perform(%State{url: "https://" <> _ = url} = state) do
     fetch_body_opts = Application.get_env(:plausible, __MODULE__)[:req_opts] || []
 

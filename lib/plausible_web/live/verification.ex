@@ -2,7 +2,7 @@ defmodule PlausibleWeb.Live.Verification do
   use PlausibleWeb, :live_view
   use Phoenix.HTML
 
-  alias Plausible.Site.Verification.Checks
+  alias Plausible.Site.Verification.{Checks, State, Diagnostics}
   alias PlausibleWeb.Live.Components.Modal
 
   @component PlausibleWeb.Live.Components.Verification
@@ -14,7 +14,7 @@ defmodule PlausibleWeb.Live.Verification do
         socket
       ) do
     if connected?(socket) and !session["modal?"] do
-      Process.send_after(self(), :start, 500)
+      launch_delayed()
     end
 
     socket =
@@ -55,12 +55,12 @@ defmodule PlausibleWeb.Live.Verification do
   end
 
   def handle_event("launch-verification", _, socket) do
-    Process.send_after(self(), :start, 500)
+    launch_delayed()
     {:noreply, socket}
   end
 
   def handle_event("retry", _, socket) do
-    Process.send_after(self(), :start, 500)
+    launch_delayed()
 
     update_component(socket,
       message: "Verifying your installation...",
@@ -106,8 +106,19 @@ defmodule PlausibleWeb.Live.Verification do
     {:noreply, socket}
   end
 
-  def handle_info({:verification_end, state}, socket) do
-    success? = !state.diagnostics.service_error && state.diagnostics.plausible_installed?
+  def handle_info(
+        {:verification_end,
+         %State{
+           data_domain: data_domain,
+           diagnostics:
+             %Diagnostics{
+               plausible_installed?: plausible_installed?,
+               service_error: service_error
+             } = diagnostics
+         }},
+        socket
+      ) do
+    success? = !service_error && plausible_installed?
 
     message =
       cond do
@@ -118,14 +129,14 @@ defmodule PlausibleWeb.Live.Verification do
           "Everything looks good. Awaiting your first pageview"
 
         true ->
-          "Verification failed for https://#{state.data_domain}"
+          "Verification failed for https://#{data_domain}"
       end
 
     update_component(socket,
       message: message,
       finished?: true,
       success?: success?,
-      diagnostics: state.diagnostics
+      diagnostics: diagnostics
     )
 
     {:noreply, socket}
@@ -142,5 +153,9 @@ defmodule PlausibleWeb.Live.Verification do
           )
       )
     )
+  end
+
+  defp launch_delayed() do
+    Process.send_after(self(), :start, 500)
   end
 end

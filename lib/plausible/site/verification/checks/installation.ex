@@ -1,6 +1,6 @@
 defmodule Plausible.Site.Verification.Checks.Installation do
   require EEx
-  use Plausible.Site.Verification.State
+  use Plausible.Site.Verification.Check
 
   @verification_script_filename "verification/verify_plausible_installed.js.eex"
   @verification_script_path Path.join(:code.priv_dir(:plausible), @verification_script_filename)
@@ -15,8 +15,10 @@ defmodule Plausible.Site.Verification.Checks.Installation do
     ]
   )
 
+  @impl true
   def friendly_name, do: "Verifying Plausible snippet installation"
 
+  @impl true
   def perform(%State{url: url} = state) do
     opts = [
       headers: %{content_type: "application/javascript"},
