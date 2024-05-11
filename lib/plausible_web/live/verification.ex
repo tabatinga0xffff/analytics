@@ -2,7 +2,7 @@ defmodule PlausibleWeb.Live.Verification do
   use PlausibleWeb, :live_view
   use Phoenix.HTML
 
-  alias Plausible.Site.Verification.{Checks, State, Diagnostics}
+  alias Plausible.Verification.{Checks, State, Diagnostics}
   alias PlausibleWeb.Live.Components.Modal
 
   @component PlausibleWeb.Live.Components.Verification

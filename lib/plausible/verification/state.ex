@@ -1,9 +1,9 @@
-defmodule Plausible.Site.Verification.State do
+defmodule Plausible.Verification.State do
   defstruct url: nil,
             data_domain: nil,
             report_to: nil,
             assigns: %{},
-            diagnostics: %Plausible.Site.Verification.Diagnostics{}
+            diagnostics: %Plausible.Verification.Diagnostics{}
 
   @type t() :: %__MODULE__{}
 

@@ -87,7 +87,7 @@ defmodule PlausibleWeb.Live.Components.Verification do
 
   def diagnostics_feedback(assigns) do
     {:error, error} =
-      Plausible.Site.Verification.Diagnostics.diagnostics_to_user_feedback(assigns.diagnostics)
+      Plausible.Verification.Diagnostics.diagnostics_to_user_feedback(assigns.diagnostics)
 
     assigns = assign(assigns, :error, error)
 

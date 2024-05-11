@@ -1,5 +1,5 @@
-defmodule Plausible.Site.Verification.Checks.Snippet do
-  use Plausible.Site.Verification.Check
+defmodule Plausible.Verification.Checks.Snippet do
+  use Plausible.Verification.Check
 
   @impl true
   def friendly_name, do: "Looking for Plausible snippet"

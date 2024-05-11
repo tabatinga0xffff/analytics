@@ -1,6 +1,6 @@
-defmodule Plausible.Site.Verification.Checks do
-  alias Plausible.Site.Verification.Checks
-  alias Plausible.Site.Verification.State
+defmodule Plausible.Verification.Checks do
+  alias Plausible.Verification.Checks
+  alias Plausible.Verification.State
 
   require Logger
 

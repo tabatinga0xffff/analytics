@@ -1,9 +1,9 @@
-defmodule Plausible.Site.Verification.CheckIntegrationTest do
+defmodule Plausible.Verification.CheckIntegrationTest do
   use Plausible.DataCase, async: true
 
   # TODO test against service  error
 
-  alias Plausible.Site.Verification.Checks
+  alias Plausible.Verification.Checks
 
   test "foo" do
     body = """
@@ -27,7 +27,7 @@ defmodule Plausible.Site.Verification.CheckIntegrationTest do
   end
 
   defp stub_fetch_body(status, body) do
-    Req.Test.stub(Plausible.Site.Verification.Checks.FetchBody, fn conn ->
+    Req.Test.stub(Plausible.Verification.Checks.FetchBody, fn conn ->
       conn
       |> Plug.Conn.put_resp_content_type("text/html")
       |> Plug.Conn.send_resp(status, body)
@@ -35,7 +35,7 @@ defmodule Plausible.Site.Verification.CheckIntegrationTest do
   end
 
   defp stub_installation(status, json) do
-    Req.Test.stub(Plausible.Site.Verification.Checks.Installation, fn conn ->
+    Req.Test.stub(Plausible.Verification.Checks.Installation, fn conn ->
       conn
       |> Plug.Conn.put_resp_content_type("application/json")
       |> Plug.Conn.send_resp(status, Jason.encode!(json))

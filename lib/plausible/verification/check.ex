@@ -1,15 +1,15 @@
-defmodule Plausible.Site.Verification.Check do
-  @type state() :: Plausible.Site.Verification.State.t()
+defmodule Plausible.Verification.Check do
+  @type state() :: Plausible.Verification.State.t()
   @callback friendly_name() :: String.t()
   @callback perform(state()) :: state()
 
   defmacro __using__(_) do
     quote do
-      alias Plausible.Site.Verification.Checks
-      alias Plausible.Site.Verification.State
-      import Plausible.Site.Verification.State
+      alias Plausible.Verification.Checks
+      alias Plausible.Verification.State
+      import Plausible.Verification.State
 
-      @behaviour Plausible.Site.Verification.Check
+      @behaviour Plausible.Verification.Check
     end
   end
 

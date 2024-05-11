@@ -1,5 +1,5 @@
-defmodule Plausible.Site.Verification.Checks.FetchBody do
-  use Plausible.Site.Verification.Check
+defmodule Plausible.Verification.Checks.FetchBody do
+  use Plausible.Verification.Check
 
   @impl true
   def friendly_name, do: "Fetching website contents"

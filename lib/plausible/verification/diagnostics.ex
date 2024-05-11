@@ -1,4 +1,4 @@
-defmodule Plausible.Site.Verification.Diagnostics do
+defmodule Plausible.Verification.Diagnostics do
   require Logger
 
   defstruct snippets_found_in_head: 0,
