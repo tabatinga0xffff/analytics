@@ -44,7 +44,7 @@ defmodule Plausible.Site.Verification.Checks.Installation do
     end
   end
 
-  def verification_endpoint() do
+  defp verification_endpoint() do
     config = Application.get_env(:plausible, __MODULE__)
     token = Keyword.fetch!(config, :token)
     endpoint = Keyword.fetch!(config, :endpoint)
