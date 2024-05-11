@@ -110,8 +110,8 @@
     </div>
 
     <div>
-      <%= live_render(@conn, PlausibleWeb.Live.SnippetVerification,
-        session: %{"site_id" => @site.id, "domain" => @site.domain, "modal" => true}
+      <%= live_render(@conn, PlausibleWeb.Live.Verification,
+        session: %{"site_id" => @site.id, "domain" => @site.domain, "modal?" => true}
       ) %>
     </div>
   </div>

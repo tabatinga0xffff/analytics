@@ -22,7 +22,7 @@
     </div>
   <% end %>
 
-  <%= live_render(@conn, PlausibleWeb.Live.SnippetVerification,
+  <%= live_render(@conn, PlausibleWeb.Live.Verification,
     session: %{"site_id" => @site.id, "domain" => @site.domain}
   ) %>
 </div>

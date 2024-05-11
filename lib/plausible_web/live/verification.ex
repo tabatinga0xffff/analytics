@@ -1,34 +1,27 @@
-defmodule PlausibleWeb.Live.SnippetVerification do
+defmodule PlausibleWeb.Live.Verification do
   use PlausibleWeb, :live_view
   use Phoenix.HTML
 
   alias Plausible.Site.Verification.Checks
   alias PlausibleWeb.Live.Components.Modal
 
-  # check if npm package installs window.plausible() function
-  # ask Marko about skip to dashboard 
-
-  @slowdown_for_frequent_checking :timer.seconds(1)
+  @component PlausibleWeb.Live.Components.Verification
+  @slowdown_for_frequent_checking :timer.seconds(5)
 
   def mount(
         _params,
         %{"domain" => domain} = session,
         socket
       ) do
-    IO.inspect(self(), label: :child)
-
-    if connected?(socket) and !session["modal"] do
+    if connected?(socket) and !session["modal?"] do
       Process.send_after(self(), :start, 500)
     end
 
     socket =
       assign(socket,
         domain: domain,
-        message: "Verifying your installation...",
-        domain: domain,
-        finished?: false,
-        success?: false,
-        modal?: !!session["modal"]
+        modal?: !!session["modal?"],
+        component: @component
       )
 
     {:ok, socket}
@@ -39,15 +32,15 @@ defmodule PlausibleWeb.Live.SnippetVerification do
     <div :if={@modal?}>
       <.live_component module={Modal} id="verification-modal">
         <.live_component
-          module={PlausibleWeb.SnippetVerificationComponent}
+          module={@component}
           domain={@domain}
           id="verification-within-modal"
-          embedded={@modal?}
+          modal?={@modal?}
         />
       </.live_component>
 
       <PlausibleWeb.Components.Generic.button
-        id="add-ip-rule"
+        id="launch-verification-button"
         x-data
         x-on:click={Modal.JS.open("verification-modal")}
         phx-click="launch-verification"
@@ -57,12 +50,7 @@ defmodule PlausibleWeb.Live.SnippetVerification do
       </PlausibleWeb.Components.Generic.button>
     </div>
 
-    <.live_component
-      :if={!@modal?}
-      module={PlausibleWeb.SnippetVerificationComponent}
-      domain={@domain}
-      id="verification-standalone"
-    />
+    <.live_component :if={!@modal?} module={@component} domain={@domain} id="verification-standalone" />
     """
   end
 
@@ -74,12 +62,7 @@ defmodule PlausibleWeb.Live.SnippetVerification do
   def handle_event("retry", _, socket) do
     Process.send_after(self(), :start, 500)
 
-    send_update(PlausibleWeb.SnippetVerificationComponent,
-      id:
-        if(socket.assigns.modal?,
-          do: "verification-within-modal",
-          else: "verification-standalone"
-        ),
+    update_component(socket,
       message: "Verifying your installation...",
       finished?: false,
       success?: false,
@@ -103,17 +86,12 @@ defmodule PlausibleWeb.Live.SnippetVerification do
       {:deny, _} -> :timer.sleep(@slowdown_for_frequent_checking)
     end
 
-    Checks.run("https://#{socket.assigns.domain}", socket.assigns.domain)
+    Checks.run("https://#{socket.assigns.domain}", socket.assigns.domain, report_to: self())
     {:noreply, socket}
   end
 
   def handle_info({:verification_check_start, {check, _state}}, socket) do
-    send_update(PlausibleWeb.SnippetVerificationComponent,
-      id:
-        if(socket.assigns.modal?,
-          do: "verification-within-modal",
-          else: "verification-standalone"
-        ),
+    update_component(socket,
       message: "#{check.friendly_name()}..."
     )
 
@@ -121,12 +99,7 @@ defmodule PlausibleWeb.Live.SnippetVerification do
   end
 
   def handle_info({:verification_check_finish, {check, _state}}, socket) do
-    send_update(PlausibleWeb.SnippetVerificationComponent,
-      id:
-        if(socket.assigns.modal?,
-          do: "verification-within-modal",
-          else: "verification-standalone"
-        ),
+    update_component(socket,
       message: "#{check.friendly_name()} completed"
     )
 
@@ -139,21 +112,16 @@ defmodule PlausibleWeb.Live.SnippetVerification do
     message =
       cond do
         success? and socket.assigns.modal? ->
-          "Plausible is installed on your website 🥳"
+          "Everything looks good!"
 
         success? ->
-          "Plausible is installed on your website 🥳 - awaiting your first pageview"
+          "Everything looks good. Awaiting your first pageview"
 
         true ->
           "Verification failed for https://#{state.data_domain}"
       end
 
-    send_update(PlausibleWeb.SnippetVerificationComponent,
-      id:
-        if(socket.assigns.modal?,
-          do: "verification-within-modal",
-          else: "verification-standalone"
-        ),
+    update_component(socket,
       message: message,
       finished?: true,
       success?: success?,
@@ -161,5 +129,18 @@ defmodule PlausibleWeb.Live.SnippetVerification do
     )
 
     {:noreply, socket}
+  end
+
+  defp update_component(socket, updates) do
+    send_update(
+      @component,
+      Keyword.merge(updates,
+        id:
+          if(socket.assigns.modal?,
+            do: "verification-within-modal",
+            else: "verification-standalone"
+          )
+      )
+    )
   end
 end
