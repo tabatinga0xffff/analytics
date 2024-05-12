@@ -26,23 +26,37 @@ defmodule Plausible.Verification.Checks do
   defp do_run(url, data_domain, checks, report_to, slowdown) do
     init_state = %State{url: url, data_domain: data_domain, report_to: report_to}
 
+    state =
+      Enum.reduce(
+        checks,
+        init_state,
+        fn check, state ->
+          state
+          |> State.notify_start(check, slowdown)
+          |> run_check(check)
+        end
+      )
+
+    State.notify_verification_end(state, slowdown)
+  end
+
+  defp run_check(state, check) do
     try do
-      state =
-        Enum.reduce(
-          checks,
-          init_state,
-          fn check, state ->
-            state
-            |> State.notify_start(check, slowdown)
-            |> check.perform()
-          end
+      check.perform(state)
+    rescue
+      e ->
+        Logger.error(
+          "Error running check #{check.friendly_name()} on #{state.url}: #{inspect(e)}"
         )
 
-      State.notify_verification_end(state, slowdown)
+        state
     catch
       e ->
-        Logger.error("Error running verification checks: #{inspect(e)}")
-        State.notify_verification_end(init_state, slowdown)
+        Logger.error(
+          "Error running check #{check.friendly_name()} on #{state.url}: #{inspect(e)}"
+        )
+
+        state
     end
   end
 end

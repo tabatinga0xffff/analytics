@@ -8,15 +8,28 @@ defmodule Plausible.Verification.Checks.FetchBody do
   def perform(%State{url: "https://" <> _ = url} = state) do
     fetch_body_opts = Application.get_env(:plausible, __MODULE__)[:req_opts] || []
 
-    opts = Keyword.merge([base_url: url, max_redirects: 1], fetch_body_opts)
+    opts =
+      Keyword.merge(
+        [
+          base_url: url,
+          max_redirects: 1,
+          connect_options: [transport_opts: [cacerts: :public_key.cacerts_get()]]
+        ],
+        fetch_body_opts
+      )
+
     req = Req.new(opts)
 
-    case Req.get(req) do
-      {:ok, %{body: body} = response} when is_binary(body) ->
+    case Req.get(req) |> IO.inspect(label: :req) do
+      {:ok, %{status: status, body: body} = response}
+      when is_binary(body) and status in 200..299 ->
         extract_document(state, response)
 
-      {:error, %{reason: e}} ->
-        put_diagnostics(state, could_not_fetch_body: e)
+      {:ok, _response} ->
+        put_diagnostics(state, could_not_fetch_body: true)
+
+      {:error, _exception} ->
+        put_diagnostics(state, could_not_fetch_body: true)
     end
   end
 
@@ -33,7 +46,7 @@ defmodule Plausible.Verification.Checks.FetchBody do
   end
 
   defp check_content_type(state, response) do
-    content_type = List.first(response.headers["content-type"])
-    put_diagnostics(state, document_content_type: content_type)
+    content_type = List.first(List.wrap(response.headers["content-type"]))
+    put_diagnostics(state, document_content_type: content_type || "")
   end
 end
